@@ -118,7 +118,7 @@ export function CalendarPage(): JSX.Element {
   const days = getDaysInMonth(currentDate);
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
+    <div className="h-full flex flex-col p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -142,7 +142,7 @@ export function CalendarPage(): JSX.Element {
       </div>
 
       {/* Month Navigation */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border">
+      <div className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border">
         <button
           onClick={() => navigateMonth('prev')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -150,7 +150,7 @@ export function CalendarPage(): JSX.Element {
           <ChevronLeft className="w-5 h-5" />
         </button>
         
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-gray-900">
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h2>
         
@@ -163,7 +163,7 @@ export function CalendarPage(): JSX.Element {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex-1">
         {/* Days of Week Header */}
         <div className="grid grid-cols-7 border-b">
           {daysOfWeek.map(day => (
@@ -177,21 +177,21 @@ export function CalendarPage(): JSX.Element {
         <div className="grid grid-cols-7">
           {days.map((day, index) => {
             if (!day) {
-              return <div key={index} className="p-2 h-24 border-b border-r border-gray-100"></div>;
+              return <div key={index} className="p-1 h-24 border-b border-r border-gray-100"></div>;
             }
 
             const dayEvents = getEventsForDate(day);
             const isToday = day.toDateString() === new Date().toDateString();
 
             return (
-              <div key={index} className="p-2 h-24 border-b border-r border-gray-100 overflow-y-auto">
+              <div key={index} className="p-1 h-24 border-b border-r border-gray-100 overflow-y-auto">
                 <div className={`text-sm font-medium mb-1 ${
                   isToday ? 'text-blue-600' : 'text-gray-900'
                 }`}>
                   {day.getDate()}
                 </div>
                 
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {dayEvents.slice(0, 2).map(event => (
                     <div
                       key={event.id}
@@ -208,7 +208,7 @@ export function CalendarPage(): JSX.Element {
                     >
                       {event.type === 'expense' && (
                         <span className="font-medium">
-                          {event.is_income ? '+' : '-'}${event.amount}
+                          {event.is_income ? '+' : '-'}₹{event.amount}
                         </span>
                       )}
                       {' '}

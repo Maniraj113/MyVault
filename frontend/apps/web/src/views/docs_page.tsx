@@ -1,12 +1,13 @@
-import { PageHero } from '../ui/page_hero';
+import { PageHeader } from '../ui/page_header';
+import { FileImage } from 'lucide-react';
 
 export function DocsPage(): JSX.Element {
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
-      <PageHero title="Docs & IDs" subtitle="Store your important documents" tone="cyan" />
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+    <div className="h-full flex flex-col p-4 space-y-6">
+      <PageHeader title="Docs & IDs" icon={<FileImage className="w-8 h-8 text-cyan-600" />} />
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {[1,2,3,4,5,6].map((i) => (
-          <div key={i} className="aspect-[3/4] card bg-surface-100" />
+          <div key={i} className="aspect-[3/4] rounded-lg border border-gray-200 bg-white shadow-sm" />
         ))}
       </div>
     </div>

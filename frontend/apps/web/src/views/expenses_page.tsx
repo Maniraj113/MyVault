@@ -1,5 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Wallet, TrendingUp, TrendingDown, Calendar, Filter } from 'lucide-react';
+import { 
+  Plus, 
+  Wallet, 
+  TrendingUp, 
+  TrendingDown, 
+  Calendar, 
+  Filter,
+  Car, 
+  PiggyBank, 
+  ShoppingCart, 
+  Carrot, 
+  MoreHorizontal, 
+  User, 
+  Shirt, 
+  GameController2, 
+  Fuel, 
+  UtensilsCrossed, 
+  Cookie, 
+  Heart 
+} from 'lucide-react';
 
 interface Expense {
   id: number;
@@ -16,21 +35,22 @@ interface ExpenseForm {
   category: string;
   is_income: boolean;
   occurred_on: string;
+  occurred_time: string;
 }
 
 const EXPENSE_CATEGORIES = [
-  'transport',
-  'savings', 
-  'grocery',
-  'vegetables',
-  'other',
-  'personal',
-  'clothing',
-  'fun',
-  'fuel',
-  'restaurant',
-  'snacks',
-  'health'
+  { value: 'transport', label: 'Transport', icon: Car },
+  { value: 'savings', label: 'Savings', icon: PiggyBank },
+  { value: 'grocery', label: 'Grocery', icon: ShoppingCart },
+  { value: 'vegetables', label: 'Vegetables', icon: Carrot },
+  { value: 'other', label: 'Other', icon: MoreHorizontal },
+  { value: 'personal', label: 'Personal', icon: User },
+  { value: 'clothing', label: 'Clothing', icon: Shirt },
+  { value: 'fun', label: 'Fun', icon: GameController2 },
+  { value: 'fuel', label: 'Fuel', icon: Fuel },
+  { value: 'restaurant', label: 'Restaurant', icon: UtensilsCrossed },
+  { value: 'snacks', label: 'Snacks', icon: Cookie },
+  { value: 'health', label: 'Health', icon: Heart }
 ];
 
 export function ExpensesPage(): JSX.Element {
@@ -45,7 +65,8 @@ export function ExpensesPage(): JSX.Element {
     amount: '',
     category: 'other',
     is_income: false,
-    occurred_on: new Date().toISOString().split('T')[0]
+    occurred_on: new Date().toISOString().split('T')[0],
+    occurred_time: new Date().toTimeString().slice(0, 5)
   });
 
   const loadExpenses = async () => {
@@ -82,7 +103,7 @@ export function ExpensesPage(): JSX.Element {
     }
 
     try {
-      const response = await fetch('/api/expenses/', {
+      const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000/api') + '/expenses/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +113,7 @@ export function ExpensesPage(): JSX.Element {
           amount: parseFloat(form.amount),
           category: form.category,
           is_income: form.is_income,
-          occurred_on: new Date(form.occurred_on).toISOString()
+          occurred_on: new Date(`${form.occurred_on}T${form.occurred_time}:00`).toISOString()
         }),
       });
 
@@ -102,7 +123,8 @@ export function ExpensesPage(): JSX.Element {
           amount: '',
           category: 'other',
           is_income: false,
-          occurred_on: new Date().toISOString().split('T')[0]
+          occurred_on: new Date().toISOString().split('T')[0],
+          occurred_time: new Date().toTimeString().slice(0, 5)
         });
         setShowForm(false);
         loadExpenses();
@@ -147,7 +169,7 @@ export function ExpensesPage(): JSX.Element {
             <TrendingUp className="w-5 h-5" />
             <span className="text-sm font-medium">Total Income</span>
           </div>
-          <p className="text-2xl font-bold text-green-900">${totalIncome.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-green-900">₹{totalIncome.toFixed(2)}</p>
         </div>
         
         <div className="bg-red-50 p-4 rounded-lg border border-red-200">
@@ -155,7 +177,7 @@ export function ExpensesPage(): JSX.Element {
             <TrendingDown className="w-5 h-5" />
             <span className="text-sm font-medium">Total Expenses</span>
           </div>
-          <p className="text-2xl font-bold text-red-900">${totalExpense.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-red-900">₹{totalExpense.toFixed(2)}</p>
         </div>
         
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -163,7 +185,7 @@ export function ExpensesPage(): JSX.Element {
             <Wallet className="w-5 h-5" />
             <span className="text-sm font-medium">Net Balance</span>
           </div>
-          <p className="text-2xl font-bold text-blue-900">${(totalIncome - totalExpense).toFixed(2)}</p>
+          <p className="text-2xl font-bold text-blue-900">₹{(totalIncome - totalExpense).toFixed(2)}</p>
         </div>
       </div>
 
@@ -191,8 +213,8 @@ export function ExpensesPage(): JSX.Element {
         >
           <option value="all">All Categories</option>
           {EXPENSE_CATEGORIES.map(category => (
-            <option key={category} value={category}>
-              {category.charAt(0).toUpperCase() + category.slice(1)}
+            <option key={category.value} value={category.value}>
+              {category.label}
             </option>
           ))}
         </select>
@@ -215,31 +237,42 @@ export function ExpensesPage(): JSX.Element {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Date</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">Date & Time</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Category</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((expense) => (
-                  <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-600">
-                      {new Date(expense.occurred_on).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{expense.title}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                        {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-3 text-right font-medium ${
-                      expense.is_income ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {expense.is_income ? '+' : '-'}${expense.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {expenses.map((expense) => {
+                  const category = EXPENSE_CATEGORIES.find(cat => cat.value === expense.category);
+                  const IconComponent = category?.icon || MoreHorizontal;
+                  
+                  return (
+                    <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-600">
+                        <div>{new Date(expense.occurred_on).toLocaleDateString()}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(expense.occurred_on).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{expense.title}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <IconComponent className="w-4 h-4 text-gray-500" />
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                            {category?.label || expense.category}
+                          </span>
+                        </div>
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${
+                        expense.is_income ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {expense.is_income ? '+' : '-'}₹{expense.amount.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -323,23 +356,37 @@ export function ExpensesPage(): JSX.Element {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   {EXPENSE_CATEGORIES.map(category => (
-                    <option key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    <option key={category.value} value={category.value}>
+                      {category.label}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  value={form.occurred_on}
-                  onChange={(e) => setForm({...form, occurred_on: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={form.occurred_on}
+                    onChange={(e) => setForm({...form, occurred_on: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="time"
+                    value={form.occurred_time}
+                    onChange={(e) => setForm({...form, occurred_time: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

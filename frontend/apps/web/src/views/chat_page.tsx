@@ -42,7 +42,7 @@ export function ChatPage(): JSX.Element {
 
     try {
       // Send to backend API
-      const response = await fetch('/api/chat/messages', {
+      const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000/api') + '/chat/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
