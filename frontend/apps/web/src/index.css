@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  margin: 0;
+  padding: 0;
+}
+
+/* Mobile specific styles */
+@media (max-width: 1024px) {
+  html, body, #root {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.glass { 
+  background: rgba(255, 255, 255, 0.65); 
+  backdrop-filter: saturate(160%) blur(12px); 
+}
+
+.card {
+  @apply rounded-xl border border-gray-200 bg-white shadow-sm;
+}
+
+.card-hover {
+  @apply hover:shadow-md transition-shadow;
+}
+
+/* Safe area insets for mobile */
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+

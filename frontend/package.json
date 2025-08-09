@@ -1,0 +1,16 @@
+{
+  "name": "myvault-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Personal Wallet monorepo: React PWA frontend (apps/web), FastAPI backend (apps/api - later)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @myvault/frontend run dev",
+    "build": "npm --workspace @myvault/frontend run build",
+    "preview": "npm --workspace @myvault/frontend run preview"
+  }
+}
+
+
