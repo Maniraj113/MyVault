@@ -56,10 +56,13 @@ class ExpenseCreate(BaseModel):
 class ExpenseOut(BaseModel):
     id: int
     item_id: int
+    title: str
     amount: float
     category: ExpenseCategory
     is_income: bool
     occurred_on: datetime
+    created_at: datetime
+    updated_at: datetime
     item: ItemOut
 
     class Config:
@@ -101,7 +104,13 @@ class TaskUpdate(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
-    conversation_id: Optional[str] = None
+    conversation_id: str = Field(min_length=1, max_length=100)
+
+
+class ChatMessageUpdate(BaseModel):
+    status: Optional[str] = Field(None, pattern="^(sent|delivered|read)$")
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
 
 
 class ChatMessageOut(BaseModel):
@@ -109,7 +118,12 @@ class ChatMessageOut(BaseModel):
     item_id: int
     message: str
     is_user: bool
-    conversation_id: Optional[str]
+    conversation_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    delivered_at: Optional[datetime]
+    read_at: Optional[datetime]
     item: ItemOut
 
     class Config:

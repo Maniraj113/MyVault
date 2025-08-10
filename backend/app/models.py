@@ -47,10 +47,13 @@ class Expense(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), unique=True)
+    title: Mapped[str] = mapped_column(String(300), index=True) # Denormalized for easier access
     amount: Mapped[float] = mapped_column(Numeric(12, 2))
-    category: Mapped[ExpenseCategory] = mapped_column(String(50))
-    is_income: Mapped[bool] = mapped_column(Boolean, default=False)  # True for income, False for expense
-    occurred_on: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    category: Mapped[ExpenseCategory] = mapped_column(String(50), index=True)
+    is_income: Mapped[bool] = mapped_column(Boolean, default=False, index=True)  # True for income, False for expense
+    occurred_on: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
 
     item: Mapped[Item] = relationship(back_populates="expense")
 
@@ -73,7 +76,12 @@ class ChatMessage(Base):
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), unique=True)
     message: Mapped[str] = mapped_column(Text)
     is_user: Mapped[bool] = mapped_column(Boolean, default=True)  # True for user messages, False for system/bot
-    conversation_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    conversation_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="sent")  # sent, delivered, read
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     item: Mapped[Item] = relationship(back_populates="chat_message")
 

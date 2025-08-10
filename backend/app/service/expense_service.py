@@ -1,6 +1,7 @@
 """Expense service for managing income and expenses."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime, date
 from typing import Optional
 from calendar import monthrange
@@ -11,28 +12,41 @@ from sqlalchemy import func, extract, and_
 from ..models import Item, Expense, ExpenseCategory
 from ..schemas import ExpenseCreate, ExpenseUpdate, ExpenseReport, MonthlyReport
 
+logger = logging.getLogger("myvault.expense_service")
+
 
 def create_expense(db: Session, payload: ExpenseCreate) -> Expense:
     """Create a new expense or income entry."""
-    item = Item(
-        kind="expense",
-        title=payload.title,
-        content=payload.content
-    )
-    db.add(item)
-    db.flush()
+    logger.info(f"Creating {'income' if payload.is_income else 'expense'}: {payload.title} - Amount: {payload.amount} - Category: {payload.category}")
     
-    expense = Expense(
-        item_id=item.id,
-        amount=payload.amount,
-        category=payload.category,
-        is_income=payload.is_income,
-        occurred_on=payload.occurred_on or datetime.utcnow()
-    )
-    db.add(expense)
-    db.commit()
-    db.refresh(expense)
-    return expense
+    try:
+        item = Item(
+            kind="expense",
+            title=payload.title,
+            content=payload.content
+        )
+        db.add(item)
+        db.flush()
+        
+        expense = Expense(
+            item_id=item.id,
+            title=payload.title,
+            amount=payload.amount,
+            category=payload.category,
+            is_income=payload.is_income,
+            occurred_on=payload.occurred_on or datetime.utcnow()
+        )
+        db.add(expense)
+        db.commit()
+        db.refresh(expense)
+        
+        logger.info(f"Successfully created expense/income with ID: {expense.id}")
+        return expense
+        
+    except Exception as e:
+        logger.error(f"Failed to create expense: {str(e)}")
+        db.rollback()
+        raise
 
 
 def get_expenses(
@@ -45,21 +59,30 @@ def get_expenses(
     offset: int = 0
 ) -> list[Expense]:
     """Get expenses with optional filters."""
-    query = db.query(Expense).join(Item)
+    logger.info(f"Fetching expenses - Filters: income={is_income}, category={category}, dates={start_date} to {end_date}, limit={limit}, offset={offset}")
     
-    if is_income is not None:
-        query = query.filter(Expense.is_income == is_income)
-    
-    if category:
-        query = query.filter(Expense.category == category)
-    
-    if start_date:
-        query = query.filter(Expense.occurred_on >= start_date)
-    
-    if end_date:
-        query = query.filter(Expense.occurred_on <= end_date)
-    
-    return query.order_by(Expense.occurred_on.desc()).offset(offset).limit(limit).all()
+    try:
+        query = db.query(Expense).join(Item)
+        
+        if is_income is not None:
+            query = query.filter(Expense.is_income == is_income)
+        
+        if category:
+            query = query.filter(Expense.category == category)
+        
+        if start_date:
+            query = query.filter(Expense.occurred_on >= start_date)
+        
+        if end_date:
+            query = query.filter(Expense.occurred_on <= end_date)
+        
+        expenses = query.order_by(Expense.occurred_on.desc()).offset(offset).limit(limit).all()
+        logger.info(f"Retrieved {len(expenses)} expenses from database")
+        return expenses
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve expenses: {str(e)}")
+        raise
 
 
 def update_expense(db: Session, expense_id: int, payload: ExpenseUpdate) -> Optional[Expense]:
@@ -68,9 +91,10 @@ def update_expense(db: Session, expense_id: int, payload: ExpenseUpdate) -> Opti
     if not expense:
         return None
     
-    # Update item fields
+    # Update item fields and expense title
     if payload.title is not None:
         expense.item.title = payload.title
+        expense.title = payload.title
     if payload.content is not None:
         expense.item.content = payload.content
     

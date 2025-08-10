@@ -1,7 +1,7 @@
-MyVault – Requirements (MVP)
+MyVault – Requirements (Enhanced v1.1)
 
 Vision
-- A personal vault and command center to capture and retrieve links, notes, docs/IDs, health reports, expenses, and tasks in 1–2 taps across mobile and desktop (installable PWA).
+- A comprehensive personal vault and command center to capture, store, and retrieve links, notes, docs/IDs, health reports, expenses, and tasks across mobile and desktop with cloud storage and synchronization.
 
 Guiding Principles
 - Quick capture first, organize later (Inbox default).
@@ -21,8 +21,19 @@ Core User Stories
 - As a user, I can create simple tasks with due dates and mark them done.
 - As a user, I can protect the app with an optional passcode/biometric gate.
 
+Enhanced Features (v1.1)
+- ✅ Firebase Cloud Storage integration for document uploads
+- ✅ Real-time file upload with drag & drop interface  
+- ✅ Gallery-style document viewer with image previews
+- ✅ Push notification capability via Firebase Cloud Messaging
+- ✅ Production deployment on Google Cloud Run
+- ✅ Comprehensive API logging and monitoring
+- ✅ Enhanced error handling and user feedback
+- ✅ PWA manifest with proper app icons
+- ✅ Responsive desktop search functionality
+
 Non‑Goals (for MVP)
-- Advanced budgeting, OCR, multi‑user accounts, complex analytics, reminders/notifications.
+- Advanced budgeting, OCR, multi‑user accounts, complex analytics, automated reminders.
 
 Constraints & Architecture
 - PWA first (installable, works offline, responsive); desktop and mobile.

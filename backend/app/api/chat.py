@@ -7,11 +7,12 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..schemas import ChatMessageCreate, ChatMessageOut
+from ..schemas import ChatMessageCreate, ChatMessageOut, ChatMessageUpdate
 from ..service.chat_service import (
     create_chat_message,
     get_chat_messages,
-    get_conversations
+    get_conversations,
+    update_message_status
 )
 
 router = APIRouter()
@@ -57,3 +58,16 @@ def get_conversation_messages(
     with get_db() as db:
         messages = get_chat_messages(db, conversation_id, limit, offset)
         return messages
+
+
+@router.put("/messages/{message_id}/status", response_model=ChatMessageOut)
+def update_message_delivery_status(
+    message_id: int,
+    status_update: ChatMessageUpdate
+) -> ChatMessageOut:
+    """Update message delivery status (sent, delivered, read)."""
+    with get_db() as db:
+        message = update_message_status(db, message_id, status_update.status)
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
+        return message

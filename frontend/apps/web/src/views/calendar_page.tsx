@@ -195,14 +195,14 @@ export function CalendarPage(): JSX.Element {
                   {/* Aggregate only totals for day */}
                   {(() => {
                     const income = dayEvents.filter(e => e.type === 'expense' && e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
-                    const expense = dayEvents.filter(e => e.type === 'expense' && !e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
+                    const expenseTotal = dayEvents.filter(e => e.type === 'expense' && !e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
                     return (
                       <>
                         {income > 0 && (
                           <div className="text-xs p-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">+₹{income.toFixed(2)}</div>
                         )}
-                        {expense > 0 && (
-                          <div className="text-xs p-1 rounded-md bg-red-50 text-red-700 border border-red-200">-₹{expense.toFixed(2)}</div>
+                        {expenseTotal > 0 && (
+                          <div className="text-xs p-1 rounded-md bg-red-50 text-red-700 border border-red-200">-₹{expenseTotal.toFixed(2)}</div>
                         )}
                       </>
                     );

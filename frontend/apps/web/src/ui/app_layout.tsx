@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { cn } from './cn';
 import { useMemo, useState } from 'react';
+import React from 'react';
 import { ALL_ITEMS, NavItem } from './nav_items';
 import VaultIcon from '../assets/Vault Image.png';
 
@@ -38,23 +39,44 @@ export function AppLayout(): JSX.Element {
 }
 
 function TopBar(): JSX.Element {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Navigate to search page with query
+      window.location.href = `/search?q=${encodeURIComponent(searchQuery.trim())}`;
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 text-white">
-      <div className="mx-auto max-w-[1400px] px-4 py-3 lg:py-4 flex items-center gap-4">
-        <div className="flex-1 flex items-center gap-3">
-          <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-md ring-1 ring-white/20" />
-          <div className="text-2xl font-bold tracking-tight">MyVault</div>
-        </div>
-        <div className="hidden md:block w-full max-w-md">
-          <input
-            type="search"
-            placeholder="Search..."
-            className="w-full rounded-md border border-white/20 bg-white/10 text-white placeholder-white/70 px-3 py-2 outline-none focus:border-white/40 focus:ring-2 focus:ring-white/20"
-          />
-        </div>
-        <div className="flex items-center gap-3 text-white/90">
-          <div className="hidden sm:block text-white">Maniraj</div>
-          <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center">M</div>
+      <div className="w-full px-4 py-3 lg:py-4">
+        <div className="flex items-center justify-between gap-4 max-w-none">
+          {/* Left side - Logo and Title */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-md ring-1 ring-white/20" />
+            <div className="text-2xl font-bold tracking-tight">MyVault</div>
+          </div>
+          
+          {/* Center - Search bar (desktop only) */}
+          <div className="hidden md:flex flex-1 justify-center max-w-2xl mx-8">
+            <form onSubmit={handleSearch} className="w-full max-w-md">
+              <input
+                type="search"
+                placeholder="Search expenses, tasks, chats..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-white/20 bg-white/10 text-white placeholder-white/70 px-3 py-2 outline-none focus:border-white/40 focus:ring-2 focus:ring-white/20"
+              />
+            </form>
+          </div>
+          
+          {/* Right side - User info */}
+          <div className="flex items-center gap-3 text-white/90 flex-shrink-0">
+            <div className="hidden sm:block text-white">Maniraj</div>
+            <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center font-medium">M</div>
+          </div>
         </div>
       </div>
     </header>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Fragment } from 'react';
-import { createExpense as apiCreateExpense } from '../service/api';
+import { createExpense as apiCreateExpense, getExpenses as apiGetExpenses, updateExpense as apiUpdateExpense } from '../service/api';
 import { 
   Plus, 
   Wallet, 
@@ -19,11 +19,13 @@ import {
   Utensils, 
   Cookie, 
   Heart, 
-  ChevronDown
+  ChevronDown,
+  Edit
 } from 'lucide-react';
 
 interface Expense {
   id: number;
+  item_id: number;
   title: string;
   amount: number;
   category: string;
@@ -58,6 +60,7 @@ const EXPENSE_CATEGORIES = [
 export function ExpensesPage(): JSX.Element {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showCategory, setShowCategory] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
@@ -74,6 +77,35 @@ export function ExpensesPage(): JSX.Element {
       .replace(' ', '')
       .toLowerCase(),
   });
+
+  useEffect(() => {
+    if (editingExpense) {
+      const occurred = new Date(editingExpense.occurred_on);
+      setForm({
+        title: editingExpense.title,
+        amount: String(editingExpense.amount),
+        category: editingExpense.category,
+        is_income: editingExpense.is_income,
+        occurred_on: occurred.toISOString().split('T')[0],
+        occurred_time: occurred.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+          .replace(' ', '')
+          .toLowerCase(),
+      });
+      setShowForm(true);
+    } else {
+      const now = new Date();
+      setForm({
+        title: '',
+        amount: '',
+        category: 'other',
+        is_income: false,
+        occurred_on: now.toISOString().split('T')[0],
+        occurred_time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+          .replace(' ', '')
+          .toLowerCase(),
+      });
+    }
+  }, [editingExpense]);
 
   function formatToISO(dateStr: string, time12h: string): string {
     // Expect time like "01:23pm" or "01:23 am" (we normalize to no space, lowercase above)
@@ -107,16 +139,13 @@ export function ExpensesPage(): JSX.Element {
   const loadExpenses = async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (filterCategory !== 'all') params.append('category', filterCategory);
-      if (filterType === 'income') params.append('is_income', 'true');
-      if (filterType === 'expense') params.append('is_income', 'false');
+      const params: any = {};
+      if (filterCategory !== 'all') params.category = filterCategory;
+      if (filterType === 'income') params.is_income = true;
+      if (filterType === 'expense') params.is_income = false;
       
-      const response = await fetch(`/api/expenses?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setExpenses(data);
-      }
+      const data = await apiGetExpenses(params);
+      setExpenses(data);
     } catch (error) {
       console.error('Failed to load expenses:', error);
       setExpenses([]);
@@ -146,28 +175,24 @@ export function ExpensesPage(): JSX.Element {
         occurred_on: formatToISO(form.occurred_on, form.occurred_time)
       } as const;
 
-      const saved = await apiCreateExpense(payload);
-      if (saved) {
-        const d = new Date();
-        setForm({
-          title: '',
-          amount: '',
-          category: 'other',
-          is_income: false,
-          occurred_on: d.toISOString().split('T')[0],
-          occurred_time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
-            .replace(' ', '')
-            .toLowerCase(),
-        });
-        setShowForm(false);
-        loadExpenses();
+      if (editingExpense) {
+        await apiUpdateExpense(editingExpense.id, payload);
       } else {
-        alert('Failed to save expense');
+        await apiCreateExpense(payload);
       }
+
+      setEditingExpense(null);
+      setShowForm(false);
+      loadExpenses();
+
     } catch (error) {
-      console.error('Failed to create expense:', error);
+      console.error('Failed to save expense:', error);
       alert('Failed to save expense');
     }
+  };
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
   };
 
   const totalIncome = expenses
@@ -274,6 +299,7 @@ export function ExpensesPage(): JSX.Element {
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Category</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Amount</th>
+                  <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -302,7 +328,12 @@ export function ExpensesPage(): JSX.Element {
                         expense.is_income ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {expense.is_income ? '+' : '-'}₹{expense.amount.toFixed(2)}
-                </td>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button onClick={() => handleEdit(expense)} className="p-1 text-gray-400 hover:text-blue-600">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      </td>
               </tr>
                   );
                 })}
@@ -316,7 +347,7 @@ export function ExpensesPage(): JSX.Element {
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md m-4 max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4 text-gray-900">Add New Entry</h2>
+            <h2 className="text-xl font-bold mb-4 text-gray-900">{editingExpense ? 'Edit Entry' : 'Add New Entry'}</h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -448,7 +479,10 @@ export function ExpensesPage(): JSX.Element {
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingExpense(null);
+                  }}
                   className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
                 >
                   Cancel
@@ -457,7 +491,7 @@ export function ExpensesPage(): JSX.Element {
                   type="submit"
                   className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
                 >
-                  Save Entry
+                  {editingExpense ? 'Update Entry' : 'Save Entry'}
         </button>
               </div>
             </form>

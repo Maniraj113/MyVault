@@ -1,5 +1,46 @@
 # MyVault Version History
 
+## Version 1.1.0 - Enhanced Release (December 23, 2024)
+
+### 🚀 New Features
+- ✅ **Firebase Integration**: Full Firebase Storage integration for media files
+- ✅ **Enhanced Document Management**: Gallery-like interface with drag & drop upload
+- ✅ **Push Notifications**: Firebase Cloud Messaging integration
+- ✅ **Comprehensive Logging**: Detailed API operation logging with emojis
+- ✅ **Production Deployment**: Complete Cloud Run deployment guide
+- ✅ **Search Functionality**: Working search in desktop header
+- ✅ **Mobile PWA**: Proper app icons and manifest configuration
+
+### 🐛 Bug Fixes
+- ✅ **Expense Data Structure**: Fixed title column missing in expenses table
+- ✅ **Chat Visibility**: Fixed chat messages not showing after navigation
+- ✅ **CORS Configuration**: Enhanced CORS settings for production
+- ✅ **Desktop UI**: Fixed header layout spacing and alignment
+- ✅ **API Error Handling**: Improved error handling with detailed logging
+
+### 🔧 Technical Improvements
+- Enhanced logging middleware with timing and status codes
+- Updated database schema validation
+- Improved API service integration
+- Better error handling across components
+- Production-ready Docker configurations
+
+### 📱 Firebase Features
+- Cloud Storage for document uploads
+- Automatic file type detection and categorization
+- Gallery view with image previews
+- File size optimization
+- Secure download URLs
+
+### 🌐 Deployment Ready
+- Complete Google Cloud Run deployment guide
+- Production environment configuration
+- CI/CD pipeline setup
+- Database migration instructions
+- Security best practices
+
+---
+
 ## Version 1.0.0 - Initial Release (December 21, 2024)
 
 ### 🎯 Project Goals Achieved

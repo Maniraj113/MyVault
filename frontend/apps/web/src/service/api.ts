@@ -64,6 +64,23 @@ export async function createExpense(payload: {
   return await res.json();
 }
 
+export async function updateExpense(expenseId: number, payload: {
+  title: string;
+  content?: string;
+  amount: number;
+  category: string;
+  is_income?: boolean;
+  occurred_on?: string;
+}) {
+  const res = await fetch(`${API_BASE}/expenses/${expenseId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to update expense');
+  return await res.json();
+}
+
 export async function getExpenses(params: {
   is_income?: boolean;
   category?: string;

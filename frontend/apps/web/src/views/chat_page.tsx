@@ -4,10 +4,18 @@ import { getChatMessages, sendChatMessage } from '../service/api';
 
 interface ChatMessage {
   id: number;
+  item_id: number;
   message: string;
   is_user: boolean;
-  created_at: string;
   conversation_id?: string;
+  item: {
+    id: number;
+    kind: string;
+    title: string;
+    content?: string;
+    created_at: string;
+    updated_at: string;
+  };
 }
 
 export function ChatPage(): JSX.Element {
@@ -26,8 +34,8 @@ export function ChatPage(): JSX.Element {
 
   // Load existing messages so chat persists across navigation
   useEffect(() => {
-    getChatMessages('default', 200, 0)
-      .then((data) => setMessages(Array.isArray(data) ? data : []))
+    getChatMessages('default', 100, 0)
+      .then((data) => setMessages(Array.isArray(data) ? data.reverse() : []))
       .catch(() => setMessages([]));
   }, []);
 
@@ -41,16 +49,26 @@ export function ChatPage(): JSX.Element {
     // Add user message to chat
     const tempUserMessage: ChatMessage = {
       id: Date.now(),
+      item_id: 0,
       message: userMessage,
       is_user: true,
-      created_at: new Date().toISOString(),
+      conversation_id: 'default',
+      item: {
+        id: 0,
+        kind: 'chat',
+        title: `Chat message: ${userMessage.slice(0, 50)}...`,
+        content: userMessage,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
     };
     
     setMessages(prev => [...prev, tempUserMessage]);
 
     try {
+      // Note: we are reversing the array because the backend returns newest first
       const savedMessage = await sendChatMessage({ message: userMessage, conversation_id: 'default' });
-      setMessages(prev => prev.map(msg => (msg.id === tempUserMessage.id ? savedMessage : msg)));
+      setMessages(prev => [...prev.filter(msg => msg.id !== tempUserMessage.id), savedMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
       // Keep the message in chat even if API fails
@@ -106,7 +124,7 @@ export function ChatPage(): JSX.Element {
                     message.is_user ? 'text-blue-100' : 'text-gray-500'
                   }`}
                 >
-                  {new Date(message.created_at).toLocaleTimeString([], {
+                  {new Date(message.item.created_at).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}
