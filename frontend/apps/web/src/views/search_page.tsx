@@ -3,7 +3,9 @@ import { PageHero } from '../ui/page_hero';
 export function SearchPage(): JSX.Element {
   return (
     <div className="space-y-6 pb-20 lg:pb-0">
-      <PageHero title="Search" subtitle="Find links, notes, docs, expenses and tasks" tone="indigo" />
+      <div className="px-4 py-4">
+        <h1 className="text-2xl font-bold text-gray-900">Search</h1>
+      </div>
       <input
         type="search"
         placeholder="Search links, notes, docs, expenses, tasks..."

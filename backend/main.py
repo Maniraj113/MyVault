@@ -4,7 +4,8 @@ FastAPI application with SQLite database for personal data management.
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+import logging
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
@@ -57,12 +58,22 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],
+        allow_headers=["*"]
     )
 
     # Create database tables
     Base.metadata.create_all(bind=engine)
     
+    # Basic request logging
+    logging.basicConfig(level=logging.INFO)
+
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        logging.info(f"{request.method} {request.url}")
+        response = await call_next(request)
+        logging.info(f"Completed {response.status_code}")
+        return response
+
     # Include API routes
     app.include_router(api_router, prefix="/api")
     

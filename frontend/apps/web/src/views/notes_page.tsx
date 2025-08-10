@@ -1,4 +1,4 @@
-import { PageHero } from '../ui/page_hero';
+import { PageHeader } from '../ui/page_header';
 import { useEffect, useState } from 'react';
 import { createItem, listItems } from '../service/api';
 import type { Item } from '../service/types';
@@ -19,8 +19,8 @@ export function NotesPage(): JSX.Element {
   }
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
-      <PageHero title="Notes" subtitle="Capture ideas and reminders" tone="indigo" />
+    <div className="space-y-6 pb-20 lg:pb-0 p-4">
+      <PageHeader title="Notes" icon={null as any} />
       <div className="rounded-xl border border-slate-200 bg-white shadow-card p-3 flex gap-2">
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Write a quick note" className="flex-1 rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
         <button onClick={add} className="rounded-md bg-primary-600 text-white px-4 py-2 text-sm">Add</button>

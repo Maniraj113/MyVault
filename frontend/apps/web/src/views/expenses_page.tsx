@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Fragment } from 'react';
+import { createExpense as apiCreateExpense } from '../service/api';
 import { 
   Plus, 
   Wallet, 
@@ -13,11 +14,12 @@ import {
   MoreHorizontal, 
   User, 
   Shirt, 
-  GameController2, 
-  Fuel, 
-  UtensilsCrossed, 
+  Gamepad2, 
+  Zap, 
+  Utensils, 
   Cookie, 
-  Heart 
+  Heart, 
+  ChevronDown
 } from 'lucide-react';
 
 interface Expense {
@@ -46,9 +48,9 @@ const EXPENSE_CATEGORIES = [
   { value: 'other', label: 'Other', icon: MoreHorizontal },
   { value: 'personal', label: 'Personal', icon: User },
   { value: 'clothing', label: 'Clothing', icon: Shirt },
-  { value: 'fun', label: 'Fun', icon: GameController2 },
-  { value: 'fuel', label: 'Fuel', icon: Fuel },
-  { value: 'restaurant', label: 'Restaurant', icon: UtensilsCrossed },
+  { value: 'fun', label: 'Fun', icon: Gamepad2 },
+  { value: 'fuel', label: 'Fuel', icon: Zap },
+  { value: 'restaurant', label: 'Restaurant', icon: Utensils },
   { value: 'snacks', label: 'Snacks', icon: Cookie },
   { value: 'health', label: 'Health', icon: Heart }
 ];
@@ -56,18 +58,51 @@ const EXPENSE_CATEGORIES = [
 export function ExpensesPage(): JSX.Element {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showCategory, setShowCategory] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
   
+  const now = new Date();
   const [form, setForm] = useState<ExpenseForm>({
     title: '',
     amount: '',
     category: 'other',
     is_income: false,
-    occurred_on: new Date().toISOString().split('T')[0],
-    occurred_time: new Date().toTimeString().slice(0, 5)
+    occurred_on: now.toISOString().split('T')[0],
+    occurred_time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+      .replace(' ', '')
+      .toLowerCase(),
   });
+
+  function formatToISO(dateStr: string, time12h: string): string {
+    // Expect time like "01:23pm" or "01:23 am" (we normalize to no space, lowercase above)
+    const match = time12h.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
+    if (!match) return new Date(`${dateStr}T00:00:00`).toISOString();
+    let [_, hh, mm, mer] = match;
+    let hour = parseInt(hh, 10);
+    if (mer === 'pm' && hour !== 12) hour += 12;
+    if (mer === 'am' && hour === 12) hour = 0;
+    const hourStr = String(hour).padStart(2, '0');
+    const time24 = `${hourStr}:${mm}:00`;
+    return new Date(`${dateStr}T${time24}`).toISOString();
+  }
+
+  function getTimeParts(time12h: string): { hour: string; minute: string; mer: 'am' | 'pm' } {
+    const m = time12h.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
+    if (!m) return { hour: '12', minute: '00', mer: 'am' };
+    return { hour: m[1].padStart(2, '0'), minute: m[2], mer: m[3] as 'am' | 'pm' };
+  }
+
+  function setTimePart(part: 'hour' | 'minute' | 'mer', value: string): void {
+    const { hour, minute, mer } = getTimeParts(form.occurred_time);
+    const next = {
+      hour: part === 'hour' ? value.padStart(2, '0') : hour,
+      minute: part === 'minute' ? value.padStart(2, '0') : minute,
+      mer: (part === 'mer' ? value : mer) as 'am' | 'pm',
+    };
+    setForm({ ...form, occurred_time: `${next.hour}:${next.minute}${next.mer}` });
+  }
 
   const loadExpenses = async () => {
     setIsLoading(true);
@@ -103,28 +138,26 @@ export function ExpensesPage(): JSX.Element {
     }
 
     try {
-      const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000/api') + '/expenses/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: form.title,
-          amount: parseFloat(form.amount),
-          category: form.category,
-          is_income: form.is_income,
-          occurred_on: new Date(`${form.occurred_on}T${form.occurred_time}:00`).toISOString()
-        }),
-      });
+      const payload = {
+        title: form.title,
+        amount: parseFloat(form.amount),
+        category: form.category,
+        is_income: form.is_income,
+        occurred_on: formatToISO(form.occurred_on, form.occurred_time)
+      } as const;
 
-      if (response.ok) {
+      const saved = await apiCreateExpense(payload);
+      if (saved) {
+        const d = new Date();
         setForm({
           title: '',
           amount: '',
           category: 'other',
           is_income: false,
-          occurred_on: new Date().toISOString().split('T')[0],
-          occurred_time: new Date().toTimeString().slice(0, 5)
+          occurred_on: d.toISOString().split('T')[0],
+          occurred_time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+            .replace(' ', '')
+            .toLowerCase(),
         });
         setShowForm(false);
         loadExpenses();
@@ -234,16 +267,16 @@ export function ExpensesPage(): JSX.Element {
               <p className="text-sm">Add your first entry to get started</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+        <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Date & Time</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">Category</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
+            </tr>
+          </thead>
+          <tbody>
                 {expenses.map((expense) => {
                   const category = EXPENSE_CATEGORIES.find(cat => cat.value === expense.category);
                   const IconComponent = category?.icon || MoreHorizontal;
@@ -269,12 +302,12 @@ export function ExpensesPage(): JSX.Element {
                         expense.is_income ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {expense.is_income ? '+' : '-'}₹{expense.amount.toFixed(2)}
-                      </td>
-                    </tr>
+                </td>
+              </tr>
                   );
                 })}
-              </tbody>
-            </table>
+          </tbody>
+        </table>
           )}
         </div>
       </div>
@@ -350,17 +383,34 @@ export function ExpensesPage(): JSX.Element {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm({...form, category: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {EXPENSE_CATEGORIES.map(category => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md focus:outline-none"
+                    onClick={() => setShowCategory(true)}
+                  >
+                    <span className="flex items-center gap-2">
+                      {(() => { const Cat = EXPENSE_CATEGORIES.find(c => c.value === form.category)?.icon || MoreHorizontal; return <Cat className="w-5 h-5 text-gray-600" />; })()}
+                      {EXPENSE_CATEGORIES.find(c => c.value === form.category)?.label || 'Select'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </button>
+                  {showCategory && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-auto">
+                      {EXPENSE_CATEGORIES.map(category => (
+                        <button
+                          key={category.value}
+                          type="button"
+                          onClick={() => { setForm({...form, category: category.value}); setShowCategory(false); }}
+                          className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 ${form.category === category.value ? 'bg-gray-50' : ''}`}
+                        >
+                          <category.icon className="w-5 h-5 text-gray-700" />
+                          <span>{category.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -382,12 +432,18 @@ export function ExpensesPage(): JSX.Element {
                   </label>
                   <input
                     type="time"
-                    value={form.occurred_time}
-                    onChange={(e) => setForm({...form, occurred_time: e.target.value})}
+                    value={(() => { const {hour, minute, mer} = getTimeParts(form.occurred_time); const h = (mer==='pm'? ((parseInt(hour)%12)+12): (hour==='12'? '00': hour)).toString().padStart(2,'0'); return `${h}:${minute}`; })()}
+                    onChange={(e) => {
+                      const [h24, m] = e.target.value.split(':');
+                      const hNum = parseInt(h24, 10);
+                      const mer = hNum >= 12 ? 'pm' : 'am';
+                      const h12 = String(((hNum + 11) % 12) + 1).padStart(2, '0');
+                      setForm({ ...form, occurred_time: `${h12}:${m}${mer}` });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
-              </div>
+    </div>
 
               <div className="flex gap-3 pt-4">
                 <button
@@ -402,7 +458,7 @@ export function ExpensesPage(): JSX.Element {
                   className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
                 >
                   Save Entry
-                </button>
+        </button>
               </div>
             </form>
           </div>

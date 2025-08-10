@@ -84,7 +84,7 @@ export function TasksPage(): JSX.Element {
                   >
                     {task.is_done && <CheckSquare className="w-3 h-3" />}
                   </button>
-                  <div>
+            <div>
                     <div className={`font-medium ${task.is_done ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                       {task.title}
                     </div>
@@ -96,7 +96,7 @@ export function TasksPage(): JSX.Element {
                     )}
                   </div>
                 </div>
-              </div>
+            </div>
             ))}
             
             {tasks.length === 0 && (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle } from 'lucide-react';
+import { getChatMessages, sendChatMessage } from '../service/api';
 
 interface ChatMessage {
   id: number;
@@ -23,6 +24,13 @@ export function ChatPage(): JSX.Element {
     scrollToBottom();
   }, [messages]);
 
+  // Load existing messages so chat persists across navigation
+  useEffect(() => {
+    getChatMessages('default', 200, 0)
+      .then((data) => setMessages(Array.isArray(data) ? data : []))
+      .catch(() => setMessages([]));
+  }, []);
+
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
@@ -41,36 +49,8 @@ export function ChatPage(): JSX.Element {
     setMessages(prev => [...prev, tempUserMessage]);
 
     try {
-      // Send to backend API
-      const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:8000/api') + '/chat/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversation_id: 'default'
-        }),
-      });
-
-      if (response.ok) {
-        const savedMessage = await response.json();
-        // Update the temporary message with real data
-        setMessages(prev => 
-          prev.map(msg => msg.id === tempUserMessage.id ? savedMessage : msg)
-        );
-
-        // Simulate a simple auto-response (in real app, this could be AI)
-        setTimeout(() => {
-          const botResponse: ChatMessage = {
-            id: Date.now() + 1,
-            message: `I received your message: "${userMessage}". This is a demo response.`,
-            is_user: false,
-            created_at: new Date().toISOString(),
-          };
-          setMessages(prev => [...prev, botResponse]);
-        }, 1000);
-      }
+      const savedMessage = await sendChatMessage({ message: userMessage, conversation_id: 'default' });
+      setMessages(prev => prev.map(msg => (msg.id === tempUserMessage.id ? savedMessage : msg)));
     } catch (error) {
       console.error('Failed to send message:', error);
       // Keep the message in chat even if API fails
@@ -150,7 +130,7 @@ export function ChatPage(): JSX.Element {
       </div>
 
       {/* Message Input */}
-      <div className="p-4 bg-white border-t border-gray-200">
+      <div className="p-4 bg-white border-t border-gray-200 sticky bottom-0">
         <div className="flex items-center gap-2">
           <div className="flex-1 relative">
             <textarea

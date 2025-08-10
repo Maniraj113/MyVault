@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Prefer relative proxy during dev to avoid CORS entirely; allow override in prod
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export type ListParams = { kind?: string; limit?: number; offset?: number };
 
@@ -8,13 +9,13 @@ export async function listItems(params: ListParams = {}) {
   if (params.kind) qs.set('kind', params.kind);
   if (params.limit != null) qs.set('limit', String(params.limit));
   if (params.offset != null) qs.set('offset', String(params.offset));
-  const res = await fetch(`${API_BASE}/items?${qs.toString()}`);
+  const res = await fetch(`${API_BASE}/items/?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to load items');
   return (await res.json()) as any[];
 }
 
 export async function createItem(payload: { kind: string; title: string; content?: string }) {
-  const res = await fetch(`${API_BASE}/items`, {
+  const res = await fetch(`${API_BASE}/items/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -76,7 +77,7 @@ export async function getExpenses(params: {
     if (value != null) qs.set(key, String(value));
   });
   
-  const res = await fetch(`${API_BASE}/expenses?${qs.toString()}`);
+  const res = await fetch(`${API_BASE}/expenses/?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to load expenses');
   return await res.json();
 }
@@ -114,7 +115,7 @@ export async function getTasks(params: {
     if (value != null) qs.set(key, String(value));
   });
   
-  const res = await fetch(`${API_BASE}/tasks?${qs.toString()}`);
+  const res = await fetch(`${API_BASE}/tasks/?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to load tasks');
   return await res.json();
 }

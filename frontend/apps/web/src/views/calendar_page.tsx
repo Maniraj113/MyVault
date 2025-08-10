@@ -142,7 +142,7 @@ export function CalendarPage(): JSX.Element {
       </div>
 
       {/* Month Navigation */}
-      <div className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border">
+      <div className="flex items-center justify-between bg-gradient-to-r from-slate-50 to-white p-3 rounded-xl shadow-sm border">
         <button
           onClick={() => navigateMonth('prev')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -163,7 +163,7 @@ export function CalendarPage(): JSX.Element {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex-1">
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex-1 min-h-[680px]">
         {/* Days of Week Header */}
         <div className="grid grid-cols-7 border-b">
           {daysOfWeek.map(day => (
@@ -174,17 +174,17 @@ export function CalendarPage(): JSX.Element {
         </div>
 
         {/* Calendar Days */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 auto-rows-[110px] md:auto-rows-[120px]">
           {days.map((day, index) => {
             if (!day) {
-              return <div key={index} className="p-1 h-24 border-b border-r border-gray-100"></div>;
+              return <div key={index} className="p-1 border-b border-r border-gray-100 bg-gray-50"></div>;
             }
 
             const dayEvents = getEventsForDate(day);
             const isToday = day.toDateString() === new Date().toDateString();
 
             return (
-              <div key={index} className="p-1 h-24 border-b border-r border-gray-100 overflow-y-auto">
+              <div key={index} className="p-1 border-b border-r border-gray-100 overflow-y-auto">
                 <div className={`text-sm font-medium mb-1 ${
                   isToday ? 'text-blue-600' : 'text-gray-900'
                 }`}>
@@ -192,34 +192,21 @@ export function CalendarPage(): JSX.Element {
                 </div>
                 
                 <div className="space-y-0.5">
-                  {dayEvents.slice(0, 2).map(event => (
-                    <div
-                      key={event.id}
-                      className={`text-xs p-1 rounded truncate ${
-                        event.type === 'task'
-                          ? event.is_done
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-blue-100 text-blue-800'
-                          : event.is_income
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-red-100 text-red-800'
-                      }`}
-                      title={event.title}
-                    >
-                      {event.type === 'expense' && (
-                        <span className="font-medium">
-                          {event.is_income ? '+' : '-'}₹{event.amount}
-                        </span>
-                      )}
-                      {' '}
-                      {event.title}
-                    </div>
-                  ))}
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-gray-500">
-                      +{dayEvents.length - 2} more
-                    </div>
-                  )}
+                  {/* Aggregate only totals for day */}
+                  {(() => {
+                    const income = dayEvents.filter(e => e.type === 'expense' && e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
+                    const expense = dayEvents.filter(e => e.type === 'expense' && !e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
+                    return (
+                      <>
+                        {income > 0 && (
+                          <div className="text-xs p-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">+₹{income.toFixed(2)}</div>
+                        )}
+                        {expense > 0 && (
+                          <div className="text-xs p-1 rounded-md bg-red-50 text-red-700 border border-red-200">-₹{expense.toFixed(2)}</div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             );

@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { cn } from './cn';
 import { useMemo, useState } from 'react';
 import { ALL_ITEMS, NavItem } from './nav_items';
+import VaultIcon from '../assets/Vault Image.png';
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
@@ -16,14 +17,14 @@ export function AppLayout(): JSX.Element {
       <TopBar />
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar for desktop */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:bg-gray-900 lg:text-white lg:fixed lg:h-full lg:left-0 lg:top-0 lg:pt-20">
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:bg-gray-50 lg:text-slate-900 lg:fixed lg:h-full lg:left-0 lg:top-0 lg:pt-20 border-r border-slate-200">
           <div className="flex-1 overflow-y-auto py-6">
             <NavGroup items={[...primaryItems, ...secondaryItems]} />
           </div>
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 lg:ml-64 overflow-auto pb-16 lg:pb-0">
+        <main className="flex-1 lg:ml-64 overflow-auto pb-16 lg:pb-0 bg-gray-50">
           <div className="h-full">
             <Outlet />
           </div>
@@ -38,20 +39,21 @@ export function AppLayout(): JSX.Element {
 
 function TopBar(): JSX.Element {
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-800 bg-gray-900 text-white shadow-sm">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 text-white">
       <div className="mx-auto max-w-[1400px] px-4 py-3 lg:py-4 flex items-center gap-4">
-        <div className="flex-1">
-          <div className="text-2xl font-bold text-white tracking-tight">MyVault</div>
+        <div className="flex-1 flex items-center gap-3">
+          <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-md ring-1 ring-white/20" />
+          <div className="text-2xl font-bold tracking-tight">MyVault</div>
         </div>
         <div className="hidden md:block w-full max-w-md">
           <input
             type="search"
             placeholder="Search..."
-            className="w-full rounded-lg border border-white/10 bg-white/10 text-white placeholder-white/70 px-3 py-2 outline-none focus:border-white/30 focus:ring-2 focus:ring-white/20"
+            className="w-full rounded-md border border-white/20 bg-white/10 text-white placeholder-white/70 px-3 py-2 outline-none focus:border-white/40 focus:ring-2 focus:ring-white/20"
           />
         </div>
-        <div className="flex items-center gap-3 text-white">
-          <div className="hidden sm:block">Maniraj</div>
+        <div className="flex items-center gap-3 text-white/90">
+          <div className="hidden sm:block text-white">Maniraj</div>
           <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center">M</div>
         </div>
       </div>
@@ -70,9 +72,9 @@ function NavGroup({ items }: { items: NavItem[] }): JSX.Element {
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors border-l-4',
-                  isActive 
-                    ? 'bg-gray-800 border-blue-500 text-white' 
-                    : 'border-transparent text-gray-300 hover:bg-gray-800 hover:text-white'
+                  isActive
+                    ? 'bg-blue-50 border-blue-600 text-blue-700'
+                    : 'border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 )
               }
             >

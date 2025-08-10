@@ -1,9 +1,9 @@
-import { PageHero } from '../ui/page_hero';
+import { PageHeader } from '../ui/page_header';
 
 export function HealthPage(): JSX.Element {
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
-      <PageHero title="Health" subtitle="Keep reports and prescriptions" tone="rose" />
+    <div className="space-y-6 pb-20 lg:pb-0 p-4">
+      <PageHeader title="Health" icon={null as any} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="Reports" />
         <Card title="Prescriptions" />

@@ -110,7 +110,6 @@ class ChatMessageOut(BaseModel):
     message: str
     is_user: bool
     conversation_id: Optional[str]
-    created_at: datetime
     item: ItemOut
 
     class Config:
