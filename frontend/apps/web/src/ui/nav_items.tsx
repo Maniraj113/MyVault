@@ -20,7 +20,7 @@ export type NavItem = {
 
 export const ALL_ITEMS: NavItem[] = [
   { to: '/chat', label: 'Chat', icon: (p) => <MessageCircle className={p.className} />, priority: 1 },
-  { to: '/inbox', label: 'Inbox', icon: (p) => <Home className={p.className} />, priority: 2 },
+  { to: '/inbox', label: 'Home', icon: (p) => <Home className={p.className} />, priority: 2 },
   { to: '/expenses', label: 'Expenses', icon: (p) => <Wallet className={p.className} />, priority: 3 },
   { to: '/calendar', label: 'Calendar', icon: (p) => <Calendar className={p.className} />, priority: 4 },
   { to: '/tasks', label: 'Tasks', icon: (p) => <CheckSquare className={p.className} />, priority: 5 },

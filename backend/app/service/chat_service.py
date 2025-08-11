@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
@@ -20,32 +20,46 @@ def create_chat_message(db: Session, payload: ChatMessageCreate) -> ChatMessage:
     logger.info(f"Creating chat message - Conversation: {payload.conversation_id} - Message: {payload.message[:50]}...")
     
     try:
+        # Create the item first
         item = Item(
             kind="chat",
             title=f"Chat message: {payload.message[:50]}...",
             content=payload.message
         )
+        logger.info(f"Adding item to database...")
         db.add(item)
         db.flush()
+        logger.info(f"Item created with ID: {item.id}")
         
+        # Create the chat message
         chat_message = ChatMessage(
             item_id=item.id,
             message=payload.message,
             is_user=True,
             conversation_id=payload.conversation_id,
             status="sent",
-            created_at=datetime.utcnow()
+            created_at=datetime.now()
         )
+        logger.info(f"Adding chat message to database...")
         db.add(chat_message)
+        db.flush()
+        logger.info(f"Chat message created with ID: {chat_message.id}")
+        
+        # Commit the transaction
+        logger.info(f"Committing transaction...")
         db.commit()
+        logger.info(f"Transaction committed successfully")
         
         # Eagerly load the 'item' relationship and return it
+        logger.info(f"Loading chat message with relationships...")
         chat_message = db.query(ChatMessage).options(joinedload(ChatMessage.item)).filter(ChatMessage.id == chat_message.id).one()
         logger.info(f"Successfully created chat message with ID: {chat_message.id}")
         return chat_message
         
     except Exception as e:
         logger.error(f"Failed to create chat message: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Exception details: {str(e)}", exc_info=True)
         db.rollback()
         raise
 
@@ -85,9 +99,9 @@ def update_message_status(db: Session, message_id: int, status: str) -> Optional
             
         message.status = status
         if status == "delivered" and not message.delivered_at:
-            message.delivered_at = datetime.utcnow()
+            message.delivered_at = datetime.now()
         elif status == "read" and not message.read_at:
-            message.read_at = datetime.utcnow()
+            message.read_at = datetime.now()
             
         db.commit()
         db.refresh(message)
@@ -147,3 +161,29 @@ def get_conversations(db: Session, limit: int = 20) -> list[dict]:
         }
         for conv in conversations
     ]
+
+
+def update_chat_message(db: Session, message_id: int, payload: ChatMessageCreate) -> Optional[ChatMessage]:
+    message = db.query(ChatMessage).options(joinedload(ChatMessage.item)).filter(ChatMessage.id == message_id).first()
+    if not message:
+        return None
+    message.message = payload.message
+    message.item.content = payload.message
+    message.item.title = f"Chat message: {payload.message[:50]}..."
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def delete_chat_message(db: Session, message_id: int) -> bool:
+    message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+    if not message:
+        return False
+    # delete the parent Item to cascade delete ChatMessage
+    item = db.query(Item).filter(Item.id == message.item_id).first()
+    if item:
+        db.delete(item)
+    else:
+        db.delete(message)
+    db.commit()
+    return True

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageCircle } from 'lucide-react';
+import { Send, MessageCircle, Edit3, Trash2, Check, X } from 'lucide-react';
 import { getChatMessages, sendChatMessage } from '../service/api';
 
 interface ChatMessage {
@@ -18,10 +18,47 @@ interface ChatMessage {
   };
 }
 
+async function updateMessage(messageId: number, message: string) {
+  const res = await fetch(`/api/chat/messages/${messageId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, conversation_id: 'default' }),
+  });
+  if (!res.ok) throw new Error('Failed to update message');
+  return await res.json();
+}
+
+async function deleteMessage(messageId: number) {
+  const res = await fetch(`/api/chat/messages/${messageId}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete message');
+  return true;
+}
+
+// Helper function to format date for display
+const formatMessageDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+// Helper function to check if we should show date header
+const shouldShowDateHeader = (currentMessage: ChatMessage, previousMessage?: ChatMessage): boolean => {
+  if (!previousMessage) return true;
+  const currentDate = new Date(currentMessage.item.created_at);
+  const previousDate = new Date(previousMessage.item.created_at);
+  return currentDate.toDateString() !== previousDate.toDateString();
+};
+
 export function ChatPage(): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -41,12 +78,10 @@ export function ChatPage(): JSX.Element {
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
-
     const userMessage = newMessage.trim();
     setNewMessage('');
     setIsLoading(true);
 
-    // Add user message to chat
     const tempUserMessage: ChatMessage = {
       id: Date.now(),
       item_id: 0,
@@ -62,19 +97,39 @@ export function ChatPage(): JSX.Element {
         updated_at: new Date().toISOString(),
       },
     };
-    
+
     setMessages(prev => [...prev, tempUserMessage]);
 
     try {
-      // Note: we are reversing the array because the backend returns newest first
       const savedMessage = await sendChatMessage({ message: userMessage, conversation_id: 'default' });
       setMessages(prev => [...prev.filter(msg => msg.id !== tempUserMessage.id), savedMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Keep the message in chat even if API fails
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const startEdit = (message: ChatMessage) => {
+    setEditingId(message.id);
+    setEditingText(message.message);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingText('');
+  };
+
+  const commitEdit = async () => {
+    if (!editingId) return;
+    const updated = await updateMessage(editingId, editingText);
+    setMessages(prev => prev.map(m => (m.id === editingId ? updated : m)));
+    cancelEdit();
+  };
+
+  const handleDelete = async (id: number) => {
+    const ok = await deleteMessage(id);
+    if (ok) setMessages(prev => prev.filter(m => m.id !== id));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -93,7 +148,7 @@ export function ChatPage(): JSX.Element {
         </div>
         <div>
           <h1 className="font-semibold text-gray-900">MyVault Chat</h1>
-          <p className="text-sm text-gray-500">Always online</p>
+          <p className="text-sm text-gray-500">Your personal message storage</p>
         </div>
       </div>
 
@@ -106,43 +161,67 @@ export function ChatPage(): JSX.Element {
             <p className="text-sm">Send a message to get started</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.is_user
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-900 shadow-sm border'
-                }`}
-              >
-                <p className="text-sm">{message.message}</p>
-                <p
-                  className={`text-xs mt-1 ${
-                    message.is_user ? 'text-blue-100' : 'text-gray-500'
+          messages.map((message, index) => (
+            <React.Fragment key={message.id}>
+              {/* Date Header */}
+              {shouldShowDateHeader(message, messages[index - 1]) && (
+                <div className="flex justify-center my-4">
+                  <div className="bg-white px-3 py-1 rounded-full shadow-sm border text-xs text-gray-600 font-medium">
+                    {formatMessageDate(message.item.created_at)}
+                  </div>
+                </div>
+              )}
+
+              {/* Message */}
+              <div className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`group max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    message.is_user
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-white text-gray-900 shadow-sm border'
                   }`}
                 >
-                  {new Date(message.item.created_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
+                  {editingId === message.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        className="w-full bg-white/10 text-inherit placeholder:text-inherit/60 border border-white/20 rounded p-2"
+                        rows={3}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={commitEdit} className="p-1 rounded bg-emerald-600 text-white">
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button onClick={cancelEdit} className="p-1 rounded bg-gray-300 text-gray-800">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
+                      <div className="flex items-center justify-between gap-3 mt-1">
+                        <p className={`text-xs ${message.is_user ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {new Date(message.item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        {message.is_user && (
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                            <button onClick={() => startEdit(message)} className="p-1 rounded bg-white/20 hover:bg-white/30">
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDelete(message.id)} className="p-1 rounded bg-white/20 hover:bg-white/30">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           ))
-        )}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white px-4 py-2 rounded-lg shadow-sm border">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              </div>
-            </div>
-          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -156,9 +235,9 @@ export function ChatPage(): JSX.Element {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-full resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-2xl resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent whitespace-pre-wrap"
               rows={1}
-              style={{ minHeight: '48px', maxHeight: '120px' }}
+              style={{ minHeight: '48px', maxHeight: '160px' }}
             />
           </div>
           <button

@@ -33,13 +33,13 @@ class Item(Base):
     kind: Mapped[str] = mapped_column(String(20), index=True)  # link | note | doc | expense | task | health | chat
     title: Mapped[str] = mapped_column(String(300))
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # url/text/json snippets
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     # relationships
     expense: Mapped[Optional[Expense]] = relationship(back_populates="item", uselist=False)
     task: Mapped[Optional[Task]] = relationship(back_populates="item", uselist=False)
-    chat_message: Mapped[Optional[ChatMessage]] = relationship(back_populates="item", uselist=False)
+    chat_message: Mapped[Optional[ChatMessage]] = relationship(back_populates="item", uselist=False, cascade="all, delete-orphan")
 
 
 class Expense(Base):
@@ -51,9 +51,9 @@ class Expense(Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2))
     category: Mapped[ExpenseCategory] = mapped_column(String(50), index=True)
     is_income: Mapped[bool] = mapped_column(Boolean, default=False, index=True)  # True for income, False for expense
-    occurred_on: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+    occurred_on: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, index=True)
 
     item: Mapped[Item] = relationship(back_populates="expense")
 
@@ -78,8 +78,8 @@ class ChatMessage(Base):
     is_user: Mapped[bool] = mapped_column(Boolean, default=True)  # True for user messages, False for system/bot
     conversation_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="sent")  # sent, delivered, read
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
     delivered_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 

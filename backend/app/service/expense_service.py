@@ -6,7 +6,7 @@ from datetime import datetime, date
 from typing import Optional
 from calendar import monthrange
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_
 
 from ..models import Item, Expense, ExpenseCategory
@@ -34,12 +34,17 @@ def create_expense(db: Session, payload: ExpenseCreate) -> Expense:
             amount=payload.amount,
             category=payload.category,
             is_income=payload.is_income,
-            occurred_on=payload.occurred_on or datetime.utcnow()
+            occurred_on=payload.occurred_on or datetime.now()
         )
         db.add(expense)
         db.commit()
-        db.refresh(expense)
         
+        expense = (
+            db.query(Expense)
+            .options(joinedload(Expense.item))
+            .filter(Expense.id == expense.id)
+            .one()
+        )
         logger.info(f"Successfully created expense/income with ID: {expense.id}")
         return expense
         
@@ -62,7 +67,7 @@ def get_expenses(
     logger.info(f"Fetching expenses - Filters: income={is_income}, category={category}, dates={start_date} to {end_date}, limit={limit}, offset={offset}")
     
     try:
-        query = db.query(Expense).join(Item)
+        query = db.query(Expense).options(joinedload(Expense.item)).join(Item)
         
         if is_income is not None:
             query = query.filter(Expense.is_income == is_income)
@@ -87,18 +92,15 @@ def get_expenses(
 
 def update_expense(db: Session, expense_id: int, payload: ExpenseUpdate) -> Optional[Expense]:
     """Update an existing expense."""
-    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+    expense = db.query(Expense).options(joinedload(Expense.item)).filter(Expense.id == expense_id).first()
     if not expense:
         return None
     
-    # Update item fields and expense title
     if payload.title is not None:
         expense.item.title = payload.title
         expense.title = payload.title
     if payload.content is not None:
         expense.item.content = payload.content
-    
-    # Update expense fields
     if payload.amount is not None:
         expense.amount = payload.amount
     if payload.category is not None:
@@ -108,10 +110,15 @@ def update_expense(db: Session, expense_id: int, payload: ExpenseUpdate) -> Opti
     if payload.occurred_on is not None:
         expense.occurred_on = payload.occurred_on
     
-    expense.item.updated_at = datetime.utcnow()
+    expense.item.updated_at = datetime.now()
     db.commit()
-    db.refresh(expense)
-    return expense
+    
+    return (
+        db.query(Expense)
+        .options(joinedload(Expense.item))
+        .filter(Expense.id == expense.id)
+        .one()
+    )
 
 
 def delete_expense(db: Session, expense_id: int) -> bool:
@@ -149,9 +156,9 @@ def get_expense_by_category_report(
     return [
         ExpenseReport(
             category=result.category,
-            total_amount=float(result.total_amount),
-            count=result.count,
-            is_income=result.is_income
+            total_amount=float(result.total_amount or 0),
+            count=int(result.count or 0),
+            is_income=bool(result.is_income)
         )
         for result in results
     ]

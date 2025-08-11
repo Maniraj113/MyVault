@@ -20,40 +20,43 @@ from app.db import engine
 
 
 def setup_logging():
-    """Configure detailed logging."""
+    """Configure detailed logging with proper encoding for Windows."""
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler('myvault.log')
+            logging.FileHandler('myvault.log', encoding='utf-8')
         ]
     )
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
     setup_logging()
     logger = logging.getLogger("myvault")
-    
+
     settings = get_settings()
-    
+
     app = FastAPI(
         title=settings.app_name,
         description="""
         ## MyVault Personal Data Management API
-        
+
         A comprehensive RESTful API for managing personal data including:
         - **Chat Messages**: WhatsApp-style messaging system
         - **Expenses & Income**: Financial tracking with categories
         - **Tasks**: Todo management with due dates
         - **Calendar**: Unified view of tasks and expenses
-        
+
         ### Features
         - Real-time data synchronization
         - Comprehensive filtering and reporting
         - Mobile-responsive design support
         - SQLite database backend
-        
+
         ### Authentication
         Currently using basic setup. JWT tokens recommended for production.
         """,
@@ -71,7 +74,6 @@ def create_app() -> FastAPI:
         }
     )
 
-    # CORS middleware
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -80,90 +82,45 @@ def create_app() -> FastAPI:
         allow_headers=["*"]
     )
 
-    # Create database tables
     Base.metadata.create_all(bind=engine)
-    
-    # Enhanced logging configuration
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-        ]
-    )
-    
-    # Create logger
-    logger = logging.getLogger("myvault")
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next: Callable) -> Response:
-        """Enhanced request logging middleware."""
         start_time = time.time()
         logger = logging.getLogger("myvault")
-        
-        # Log request details
+
         client_ip = request.client.host if request.client else "unknown"
-        logger.info(f"🚀 Request: {request.method} {request.url.path}")
-        logger.info(f"👤 Client: {client_ip}")
-        logger.info(f"🔍 Query Params: {dict(request.query_params)}")
-        
-        # Log request body for POST/PUT requests
-        if request.method in ["POST", "PUT", "PATCH"]:
-            try:
-                body = await request.body()
-                if body:
-                    logger.info(f"📝 Request Body: {body.decode()}")
-            except Exception as e:
-                logger.warning(f"⚠️ Could not log request body: {str(e)}")
-        
-        # Process request
+        logger.info(f"Request: {request.method} {request.url.path}")
+        logger.info(f"Client: {client_ip}")
+        if request.query_params:
+            logger.info(f"Query Params: {dict(request.query_params)}")
+
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
-            
-            status_emoji = "✅" if response.status_code < 400 else "❌"
+            status_indicator = "SUCCESS" if response.status_code < 400 else "ERROR"
             logger.info(
-                f"{status_emoji} Response: {response.status_code} - {request.method} {request.url.path} "
-                f"- Time: {process_time:.3f}s"
+                f"Response: {response.status_code} - {request.method} {request.url.path} - Time: {process_time:.3f}s - Status: {status_indicator}"
             )
-            
-            # For errors, try to get more details
-            if response.status_code >= 400:
-                try:
-                    response_body = b""
-                    async for chunk in response.body_iterator:
-                        response_body += chunk
-                    logger.error(f"❌ Error Response Body: {response_body.decode()}")
-                except Exception:
-                    pass
-            
             return response
-            
         except Exception as e:
             process_time = time.time() - start_time
             logger.error(
-                f"💥 Error processing {request.method} {request.url.path}\n"
-                f"Error: {str(e)}\n"
-                f"Time: {process_time:.3f}s",
-                exc_info=True
+                f"Error processing {request.method} {request.url.path} | {e} | Time: {process_time:.3f}s",
+                exc_info=True,
             )
-            # Return a JSON error response instead of raising
-            return JSONResponse(
-                status_code=500,
-                content={"detail": str(e)}
-            )
+            return JSONResponse(status_code=500, content={"detail": str(e)})
 
-    # Include API routes
     app.include_router(api_router, prefix="/api")
-    
+
     @app.get("/")
     async def root():
         return {"message": "MyVault API", "version": "1.0.0", "docs": "/api/docs"}
-    
+
     @app.get("/health")
     async def health_check():
         return {"status": "healthy"}
-    
+
     return app
 
 

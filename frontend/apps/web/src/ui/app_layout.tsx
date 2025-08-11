@@ -1,9 +1,10 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { cn } from './cn';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import React from 'react';
 import { ALL_ITEMS, NavItem } from './nav_items';
 import VaultIcon from '../assets/Vault Image.png';
+import { listItems } from '../service/api';
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
@@ -40,11 +41,19 @@ export function AppLayout(): JSX.Element {
 
 function TopBar(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
+  const [recentOpen, setRecentOpen] = useState(false);
+  const [recent, setRecent] = useState<{ title: string; kind: string }[]>([]);
+
+  useEffect(() => {
+    if (!recentOpen) return;
+    listItems({ limit: 6 }).then((items: any[]) => {
+      setRecent(items.map(x => ({ title: x.title, kind: x.kind })));
+    }).catch(() => setRecent([]));
+  }, [recentOpen]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      // Navigate to search page with query
       window.location.href = `/search?q=${encodeURIComponent(searchQuery.trim())}`;
     }
   };
@@ -52,7 +61,7 @@ function TopBar(): JSX.Element {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 text-white">
       <div className="w-full px-4 py-3 lg:py-4">
-        <div className="flex items-center justify-between gap-4 max-w-none">
+        <div className="flex items-center justify-between gap-4 max-w-none relative">
           {/* Left side - Logo and Title */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-md ring-1 ring-white/20" />
@@ -72,10 +81,38 @@ function TopBar(): JSX.Element {
             </form>
           </div>
           
-          {/* Right side - User info */}
-          <div className="flex items-center gap-3 text-white/90 flex-shrink-0">
-            <div className="hidden sm:block text-white">Maniraj</div>
+          {/* Right side - User info + Recent button */}
+          <div className="flex items-center gap-3 text-white/90 flex-shrink-0 relative">
+            <button
+              onClick={() => setRecentOpen(v => !v)}
+              className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-md bg-white/10 hover:bg-white/15 transition-colors"
+              aria-label="Recent"
+              title="Recently Added"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-9-9"/><polyline points="21 3 21 12 12 12"/>
+              </svg>
+              <span className="text-sm">Recent</span>
+            </button>
             <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center font-medium">M</div>
+
+            {recentOpen && (
+              <div className="absolute right-0 top-12 w-72 bg-white text-gray-900 rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+                <div className="px-3 py-2 text-xs font-semibold bg-gray-50 border-b">Recently Added</div>
+                <ul className="max-h-80 overflow-y-auto">
+                  {recent.length === 0 ? (
+                    <li className="px-3 py-3 text-sm text-gray-500">No recent items</li>
+                  ) : (
+                    recent.map((r, idx) => (
+                      <li key={idx} className="px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-50">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-blue-100 text-blue-700 text-[10px] uppercase">{r.kind[0]}</span>
+                        <span className="truncate">{r.title}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
