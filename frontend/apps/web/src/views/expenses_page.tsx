@@ -108,16 +108,17 @@ export function ExpensesPage(): JSX.Element {
   }, [editingExpense]);
 
   function formatToISO(dateStr: string, time12h: string): string {
-    // Expect time like "01:23pm" or "01:23 am" (we normalize to no space, lowercase above)
+    // Expect time like "01:23pm"; return a LOCAL naive ISO-like string without timezone
     const match = time12h.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
-    if (!match) return new Date(`${dateStr}T00:00:00`).toISOString();
+    if (!match) return `${dateStr}T00:00:00`;
     let [_, hh, mm, mer] = match;
     let hour = parseInt(hh, 10);
     if (mer === 'pm' && hour !== 12) hour += 12;
     if (mer === 'am' && hour === 12) hour = 0;
     const hourStr = String(hour).padStart(2, '0');
     const time24 = `${hourStr}:${mm}:00`;
-    return new Date(`${dateStr}T${time24}`).toISOString();
+    // Do NOT call toISOString() which converts to UTC and shifts time
+    return `${dateStr}T${time24}`;
   }
 
   function getTimeParts(time12h: string): { hour: string; minute: string; mer: 'am' | 'pm' } {
@@ -292,53 +293,81 @@ export function ExpensesPage(): JSX.Element {
               <p className="text-sm">Add your first entry to get started</p>
             </div>
           ) : (
-        <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Date & Time</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">Category</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-700">Amount</th>
-                  <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+            <>
+              {/* Table for md+ */}
+              <table className="hidden md:table w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Date & Time</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Title</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-700">Category</th>
+                    <th className="px-4 py-3 text-right font-medium text-gray-700">Amount</th>
+                    <th className="px-4 py-3 text-center font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map((expense) => {
+                    const category = EXPENSE_CATEGORIES.find(cat => cat.value === expense.category);
+                    const IconComponent = category?.icon || MoreHorizontal;
+                    return (
+                      <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-600">
+                          <div>{new Date(expense.occurred_on).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(expense.occurred_on).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-gray-900">{expense.title}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <IconComponent className="w-4 h-4 text-gray-500" />
+                            <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                              {category?.label || expense.category}
+                            </span>
+                          </div>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${expense.is_income ? 'text-green-600' : 'text-red-600'}`}>
+                          {expense.is_income ? '+' : '-'}₹{Number(expense.amount).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button onClick={() => handleEdit(expense)} className="p-1 text-gray-400 hover:text-blue-600">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Cards for mobile */}
+              <ul className="md:hidden divide-y">
                 {expenses.map((expense) => {
                   const category = EXPENSE_CATEGORIES.find(cat => cat.value === expense.category);
                   const IconComponent = category?.icon || MoreHorizontal;
-                  
                   return (
-                    <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-600">
-                        <div>{new Date(expense.occurred_on).toLocaleDateString()}</div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(expense.occurred_on).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    <li key={expense.id} className="p-3 flex items-center gap-3" onClick={() => handleEdit(expense)}>
+                      <div className={`h-10 w-10 rounded-md grid place-items-center ${expense.is_income ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-gray-900 truncate">{expense.title}</div>
+                          <div className={`ml-3 font-semibold ${expense.is_income ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {expense.is_income ? '+' : '-'}₹{Number(expense.amount).toFixed(2)}
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{expense.title}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <IconComponent className="w-4 h-4 text-gray-500" />
-                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                            {category?.label || expense.category}
-                          </span>
+                        <div className="text-xs text-gray-500 flex gap-2">
+                          <span>{new Date(expense.occurred_on).toLocaleDateString()}</span>
+                          <span>{new Date(expense.occurred_on).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{category?.label || expense.category}</span>
                         </div>
-                      </td>
-                      <td className={`px-4 py-3 text-right font-medium ${
-                        expense.is_income ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {expense.is_income ? '+' : '-'}₹{expense.amount.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button onClick={() => handleEdit(expense)} className="p-1 text-gray-400 hover:text-blue-600">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      </td>
-              </tr>
+                      </div>
+                    </li>
                   );
                 })}
-          </tbody>
-        </table>
+              </ul>
+            </>
           )}
         </div>
       </div>

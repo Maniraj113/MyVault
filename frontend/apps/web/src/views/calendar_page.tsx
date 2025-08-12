@@ -184,26 +184,21 @@ export function CalendarPage(): JSX.Element {
             const isToday = day.toDateString() === new Date().toDateString();
 
             return (
-              <div key={index} className="p-1 border-b border-r border-gray-100 overflow-y-auto">
+              <div key={index} className="p-1 border-b border-r border-gray-100 overflow-hidden">
                 <div className={`text-sm font-medium mb-1 ${
                   isToday ? 'text-blue-600' : 'text-gray-900'
                 }`}>
                   {day.getDate()}
                 </div>
-                
-                <div className="space-y-0.5">
-                  {/* Aggregate only totals for day */}
+                {/* Compact indicators */}
+                <div className="flex gap-1 items-center">
                   {(() => {
-                    const income = dayEvents.filter(e => e.type === 'expense' && e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
-                    const expenseTotal = dayEvents.filter(e => e.type === 'expense' && !e.is_income).reduce((s, e) => s + (e.amount || 0), 0);
+                    const income = Number(dayEvents.filter(e => e.type === 'expense' && e.is_income).reduce((s, e) => s + Number(e.amount || 0), 0));
+                    const expenseTotal = Number(dayEvents.filter(e => e.type === 'expense' && !e.is_income).reduce((s, e) => s + Number(e.amount || 0), 0));
                     return (
                       <>
-                        {income > 0 && (
-                          <div className="text-xs p-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">+₹{income.toFixed(2)}</div>
-                        )}
-                        {expenseTotal > 0 && (
-                          <div className="text-xs p-1 rounded-md bg-red-50 text-red-700 border border-red-200">-₹{expenseTotal.toFixed(2)}</div>
-                        )}
+                        {income > 0 && <span title={`+₹${income.toFixed(2)}`} className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>}
+                        {expenseTotal > 0 && <span title={`-₹${expenseTotal.toFixed(2)}`} className="inline-block h-2.5 w-2.5 rounded-full bg-red-500"></span>}
                       </>
                     );
                   })()}

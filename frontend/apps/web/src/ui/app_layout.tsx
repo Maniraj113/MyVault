@@ -9,9 +9,9 @@ import { listItems } from '../service/api';
 export function AppLayout(): JSX.Element {
   const location = useLocation();
 
-  const [primaryItems, secondaryItems] = useMemo(() => {
+  const [primaryItems] = useMemo(() => {
     const sorted = [...ALL_ITEMS].sort((a, b) => a.priority - b.priority);
-    return [sorted.slice(0, 5), sorted.slice(5)];
+    return [sorted.slice(0, 5)];
   }, []);
 
   return (
@@ -19,9 +19,9 @@ export function AppLayout(): JSX.Element {
       <TopBar />
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar for desktop */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:bg-gray-50 lg:text-slate-900 lg:fixed lg:h-full lg:left-0 lg:top-0 lg:pt-20 border-r border-slate-200">
+        <aside className="hidden lg:flex lg:flex-col lg:w-56 lg:bg-gray-50 lg:text-slate-900 lg:fixed lg:h-full lg:left-0 lg:top-0 lg:pt-20 border-r border-slate-200">
           <div className="flex-1 overflow-y-auto py-6">
-            <NavGroup items={[...primaryItems, ...secondaryItems]} />
+            <NavGroup items={[...primaryItems]} />
           </div>
         </aside>
 
@@ -34,22 +34,14 @@ export function AppLayout(): JSX.Element {
       </div>
 
       {/* Bottom nav for mobile with More sheet */}
-      <MobileNav primaryItems={primaryItems} secondaryItems={secondaryItems} />
+      <MobileNav primaryItems={primaryItems} />
     </div>
   );
 }
 
 function TopBar(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
-  const [recentOpen, setRecentOpen] = useState(false);
-  const [recent, setRecent] = useState<{ title: string; kind: string }[]>([]);
-
-  useEffect(() => {
-    if (!recentOpen) return;
-    listItems({ limit: 6 }).then((items: any[]) => {
-      setRecent(items.map(x => ({ title: x.title, kind: x.kind })));
-    }).catch(() => setRecent([]));
-  }, [recentOpen]);
+  // Recent popover removed; use dedicated /recent screen
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,38 +73,9 @@ function TopBar(): JSX.Element {
             </form>
           </div>
           
-          {/* Right side - User info + Recent button */}
+          {/* Right side - User info */}
           <div className="flex items-center gap-3 text-white/90 flex-shrink-0 relative">
-            <button
-              onClick={() => setRecentOpen(v => !v)}
-              className="hidden sm:flex items-center gap-2 px-2 py-1 rounded-md bg-white/10 hover:bg-white/15 transition-colors"
-              aria-label="Recent"
-              title="Recently Added"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 1 1-9-9"/><polyline points="21 3 21 12 12 12"/>
-              </svg>
-              <span className="text-sm">Recent</span>
-            </button>
             <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center font-medium">M</div>
-
-            {recentOpen && (
-              <div className="absolute right-0 top-12 w-72 bg-white text-gray-900 rounded-lg shadow-xl border border-gray-200 overflow-hidden">
-                <div className="px-3 py-2 text-xs font-semibold bg-gray-50 border-b">Recently Added</div>
-                <ul className="max-h-80 overflow-y-auto">
-                  {recent.length === 0 ? (
-                    <li className="px-3 py-3 text-sm text-gray-500">No recent items</li>
-                  ) : (
-                    recent.map((r, idx) => (
-                      <li key={idx} className="px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-50">
-                        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-blue-100 text-blue-700 text-[10px] uppercase">{r.kind[0]}</span>
-                        <span className="truncate">{r.title}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -149,19 +112,14 @@ function NavGroup({ items }: { items: NavItem[] }): JSX.Element {
 
 function MobileNav({
   primaryItems,
-  secondaryItems,
 }: {
   primaryItems: NavItem[];
-  secondaryItems: NavItem[];
 }): JSX.Element {
   const location = useLocation();
-  const [isMoreOpen, setIsMoreOpen] = useState(false);
-
-  const firstFour = primaryItems.slice(0, 4);
   return (
     <nav className="lg:hidden fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white shadow-lg">
       <ul className="flex items-center justify-around py-2 safe-area-inset-bottom">
-        {firstFour.map((item) => (
+        {primaryItems.map((item) => (
           <li key={item.to}>
             <NavLink
               to={item.to}
@@ -180,43 +138,7 @@ function MobileNav({
             </NavLink>
           </li>
         ))}
-        <li>
-          <button
-            className="flex flex-col items-center gap-1 px-3 py-2 text-xs text-gray-500 transition-colors"
-            onClick={() => setIsMoreOpen((v) => !v)}
-            aria-label="More"
-          >
-            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
-            </svg>
-            <span className="text-xs font-medium">More</span>
-          </button>
-        </li>
       </ul>
-
-      {isMoreOpen && (
-        <div className="absolute inset-x-0 bottom-16 mx-4 rounded-xl border border-gray-200 bg-white shadow-lg p-3">
-          <ul className="grid grid-cols-3 gap-3">
-            {[...primaryItems.slice(4), ...secondaryItems].map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  onClick={() => setIsMoreOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex flex-col items-center gap-2 rounded-lg px-3 py-3 text-xs hover:bg-gray-50 transition-colors',
-                      isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600'
-                    )
-                  }
-                >
-                  {item.icon({ className: 'h-6 w-6' })}
-                  <span className="font-medium">{item.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </nav>
   );
 }

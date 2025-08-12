@@ -13,6 +13,7 @@ import { ExpensesPage } from './views/expenses_page';
 import { TasksPage } from './views/tasks_page';
 import { SearchPage } from './views/search_page';
 import { CalendarPage } from './views/calendar_page';
+import { RecentPage } from './views/recent_page';
 
 const router = createBrowserRouter([
   {
@@ -22,6 +23,7 @@ const router = createBrowserRouter([
       { index: true, element: <ChatPage /> },
       { path: 'chat', element: <ChatPage /> },
       { path: 'inbox', element: <InboxPage /> },
+      { path: 'recent', element: <RecentPage /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'expenses', element: <ExpensesPage /> },
       { path: 'tasks', element: <TasksPage /> },
