@@ -75,7 +75,7 @@ steps:
 # Configuration for the build
 options:
   logging: CLOUD_LOGGING_ONLY
-  machineType: 'E2_STANDARD_2'
+ 
 
 # Substitution variables (can be overridden in trigger)
 substitutions:
