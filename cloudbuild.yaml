@@ -1,5 +1,5 @@
 # Cloud Build pipeline for deploying both frontend and backend to Cloud Run
-# Requires an Artifact Registry repo and a Secret Manager secret named POSTGRES_URL
+# Requires Artifact Registry repos and proper service account setup
 
 substitutions:
   _REGION: asia-southeast1                 # pick your region
@@ -28,7 +28,7 @@ steps:
   - name: gcr.io/cloud-builders/docker
     args: ["push", "$_FRONTEND_IMAGE:$SHORT_SHA"]
 
-  # Deploy backend to Cloud Run with DATABASE_URL from Secret Manager
+  # Deploy backend to Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
@@ -39,8 +39,8 @@ steps:
         "--allow-unauthenticated",
         "--platform","managed",
         "--service-account","$_SERVICE_ACCOUNT",
-        "--set-secrets","DATABASE_URL=projects/$PROJECT_ID/secrets/POSTGRES_URL/versions/latest",
-        "--update-env-vars","ENV=prod,DB_POOL_CLASS=null,PROD_FRONTEND_ORIGIN=https://$_FRONTEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
+        "--update-env-vars","ENV=prod,DB_POOL_CLASS=null,GOOGLE_CLOUD_PROJECT=$PROJECT_ID",
+        "--update-env-vars","PROD_FRONTEND_ORIGIN=https://$_FRONTEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
         "--update-env-vars","PYTHONUNBUFFERED=1",
         "--concurrency","10",
         "--max-instances","5"
@@ -58,6 +58,7 @@ steps:
         "--platform","managed",
         "--service-account","$_SERVICE_ACCOUNT",
         "--update-env-vars","VITE_API_URL=https://$_BACKEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
+        "--update-env-vars","VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID",
         "--concurrency","80",
         "--max-instances","10"
       ]
