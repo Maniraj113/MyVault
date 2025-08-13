@@ -1,42 +1,70 @@
-# Cloud Build pipeline for deploying the backend (in ./backend) to Cloud Run
+# Cloud Build pipeline for deploying both frontend and backend to Cloud Run
 # Requires an Artifact Registry repo and a Secret Manager secret named POSTGRES_URL
 
 substitutions:
   _REGION: asia-southeast1                 # pick your region
-  _SERVICE: myvault-api                    # Cloud Run service name
-  _REPO: myvault-backend                   # Artifact Registry repo name
+  _BACKEND_SERVICE: myvault-api            # Cloud Run service name for backend
+  _FRONTEND_SERVICE: myvault-web           # Cloud Run service name for frontend
+  _BACKEND_REPO: myvault-backend           # Artifact Registry repo name for backend
+  _FRONTEND_REPO: myvault-frontend         # Artifact Registry repo name for frontend
   _SERVICE_ACCOUNT: myvault-runner@$PROJECT_ID.iam.gserviceaccount.com
-  _IMAGE: $_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO/myvault-backend
+  _BACKEND_IMAGE: $_REGION-docker.pkg.dev/$PROJECT_ID/$_BACKEND_REPO/myvault-backend
+  _FRONTEND_IMAGE: $_REGION-docker.pkg.dev/$PROJECT_ID/$_FRONTEND_REPO/myvault-frontend
 
 steps:
   # Build the backend image from the ./backend directory
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "$_IMAGE:$SHORT_SHA", "backend"]
+    args: ["build", "-t", "$_BACKEND_IMAGE:$SHORT_SHA", "backend"]
 
-  # Push image
+  # Build the frontend image from the ./frontend directory
   - name: gcr.io/cloud-builders/docker
-    args: ["push", "$_IMAGE:$SHORT_SHA"]
+    args: ["build", "-t", "$_FRONTEND_IMAGE:$SHORT_SHA", "frontend"]
 
-  # Deploy to Cloud Run with DATABASE_URL from Secret Manager
+  # Push backend image
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "$_BACKEND_IMAGE:$SHORT_SHA"]
+
+  # Push frontend image
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "$_FRONTEND_IMAGE:$SHORT_SHA"]
+
+  # Deploy backend to Cloud Run with DATABASE_URL from Secret Manager
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
       [
-        "run","deploy","$_SERVICE",
-        "--image","$_IMAGE:$SHORT_SHA",
+        "run","deploy","$_BACKEND_SERVICE",
+        "--image","$_BACKEND_IMAGE:$SHORT_SHA",
         "--region","$_REGION",
         "--allow-unauthenticated",
         "--platform","managed",
         "--service-account","$_SERVICE_ACCOUNT",
         "--set-secrets","DATABASE_URL=projects/$PROJECT_ID/secrets/POSTGRES_URL/versions/latest",
-        "--update-env-vars","ENV=prod,DB_POOL_CLASS=null,PROD_FRONTEND_ORIGIN=https://<frontend-domain>",
+        "--update-env-vars","ENV=prod,DB_POOL_CLASS=null,PROD_FRONTEND_ORIGIN=https://$_FRONTEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
         "--update-env-vars","PYTHONUNBUFFERED=1",
         "--concurrency","10",
         "--max-instances","5"
       ]
 
+  # Deploy frontend to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      [
+        "run","deploy","$_FRONTEND_SERVICE",
+        "--image","$_FRONTEND_IMAGE:$SHORT_SHA",
+        "--region","$_REGION",
+        "--allow-unauthenticated",
+        "--platform","managed",
+        "--service-account","$_SERVICE_ACCOUNT",
+        "--update-env-vars","VITE_API_URL=https://$_BACKEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
+        "--concurrency","80",
+        "--max-instances","10"
+      ]
+
 images:
-  - "$_IMAGE:$SHORT_SHA"
+  - "$_BACKEND_IMAGE:$SHORT_SHA"
+  - "$_FRONTEND_IMAGE:$SHORT_SHA"
 
 options:
   logging: CLOUD_LOGGING_ONLY
