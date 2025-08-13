@@ -20,7 +20,8 @@ import {
   Shield,
   Stethoscope
 } from 'lucide-react';
-import { uploadFile, deleteFile, getFileTypeFromMime, formatFileSize } from '../service/firebase';
+import { getFileTypeFromMime, formatFileSize } from '../service/firebase';
+import { uploadFile, deleteFile } from '../service/api';
 import { createItem, listItems } from '../service/api';
 
 interface HealthDocument {

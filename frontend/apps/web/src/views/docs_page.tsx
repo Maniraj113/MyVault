@@ -116,10 +116,10 @@ export function DocsPage(): JSX.Element {
               key={file.id}
               file={file}
               onDelete={() => handleDeleteFile(file.id)}
-            />
-          ))}
-        </div>
-      )}
+              />
+            ))}
+          </div>
+        )}
 
       {/* Upload Modal */}
       {showUploadModal && (
