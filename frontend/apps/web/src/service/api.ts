@@ -64,7 +64,7 @@ export async function createExpense(payload: {
   return await res.json();
 }
 
-export async function updateExpense(expenseId: number, payload: {
+export async function updateExpense(expenseId: string, payload: {
   title: string;
   content?: string;
   amount: number;
@@ -137,7 +137,7 @@ export async function getTasks(params: {
   return await res.json();
 }
 
-export async function toggleTask(taskId: number) {
+export async function toggleTask(taskId: string) {
   const res = await fetch(`${API_BASE}/tasks/${taskId}/toggle`, {
     method: 'POST',
   });
@@ -159,4 +159,62 @@ export async function getCalendarEvents(params: {
   const res = await fetch(`${API_BASE}/calendar/events?${qs.toString()}`);
   if (!res.ok) throw new Error('Failed to load calendar events');
   return await res.json();
+}
+
+// Files API
+export async function uploadFile(file: File, title?: string, content?: string, folder = 'documents') {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (title) formData.append('title', title);
+  if (content) formData.append('content', content);
+  formData.append('folder', folder);
+
+  const res = await fetch(`${API_BASE}/files/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Failed to upload file');
+  return await res.json();
+}
+
+export async function getFiles(params: {
+  folder?: string;
+  content_type?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null) qs.set(key, String(value));
+  });
+  
+  const res = await fetch(`${API_BASE}/files/?${qs.toString()}`);
+  if (!res.ok) throw new Error('Failed to load files');
+  return await res.json();
+}
+
+export async function getFile(fileId: string) {
+  const res = await fetch(`${API_BASE}/files/${fileId}`);
+  if (!res.ok) throw new Error('Failed to load file');
+  return await res.json();
+}
+
+export async function deleteFile(fileId: string) {
+  const res = await fetch(`${API_BASE}/files/${fileId}`, { 
+    method: 'DELETE' 
+  });
+  if (!res.ok) throw new Error('Failed to delete file');
+  return await res.json();
+}
+
+export async function getFileDownloadUrl(fileId: string, signed = false) {
+  const res = await fetch(`${API_BASE}/files/${fileId}/download?signed=${signed}`);
+  if (!res.ok) throw new Error('Failed to get download URL');
+  
+  if (signed) {
+    return await res.json();
+  } else {
+    // For public files, return the redirect URL
+    return { download_url: res.url };
+  }
 }

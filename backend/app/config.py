@@ -1,14 +1,6 @@
 from pydantic import BaseModel
 import os
-from pathlib import Path
 from typing import List
-
-
-def _default_sqlite_url() -> str:
-    # Ensure DB file is created under backend folder regardless of CWD
-    backend_dir = Path(__file__).resolve().parents[1]
-    db_path = backend_dir / "myvault.db"
-    return f"sqlite:///{db_path}"
 
 
 def _default_cors_origins() -> List[str]:
@@ -37,7 +29,6 @@ def _default_cors_origins() -> List[str]:
 class Settings(BaseModel):
     app_name: str = "MyVault API"
     environment: str = os.getenv("ENV", "local")
-    database_url: str = os.getenv("DATABASE_URL", _default_sqlite_url())
     cors_origins: list[str] = _default_cors_origins()
 
 

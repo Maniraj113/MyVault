@@ -9,9 +9,9 @@ import { listItems } from '../service/api';
 export function AppLayout(): JSX.Element {
   const location = useLocation();
 
-  const [primaryItems] = useMemo(() => {
+  const [primaryItems, sidebarItems] = useMemo(() => {
     const sorted = [...ALL_ITEMS].sort((a, b) => a.priority - b.priority);
-    return [sorted.slice(0, 5)];
+    return [sorted.slice(0, 5), sorted]; // 5 for mobile, all for desktop sidebar
   }, []);
 
   return (
@@ -21,7 +21,7 @@ export function AppLayout(): JSX.Element {
         {/* Sidebar for desktop */}
         <aside className="hidden lg:flex lg:flex-col lg:w-56 lg:bg-gray-50 lg:text-slate-900 lg:fixed lg:h-full lg:left-0 lg:top-0 lg:pt-20 border-r border-slate-200">
           <div className="flex-1 overflow-y-auto py-6">
-            <NavGroup items={[...primaryItems]} />
+            <NavGroup items={sidebarItems} />
           </div>
         </aside>
 

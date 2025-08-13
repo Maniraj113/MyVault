@@ -3,13 +3,13 @@ import { Send, MessageCircle, Edit3, Trash2, Check, X } from 'lucide-react';
 import { getChatMessages, sendChatMessage } from '../service/api';
 
 interface ChatMessage {
-  id: number;
-  item_id: number;
+  id: string;
+  item_id: string;
   message: string;
   is_user: boolean;
   conversation_id?: string;
   item: {
-    id: number;
+    id: string;
     kind: string;
     title: string;
     content?: string;
@@ -18,7 +18,7 @@ interface ChatMessage {
   };
 }
 
-async function updateMessage(messageId: number, message: string) {
+async function updateMessage(messageId: string, message: string) {
   const res = await fetch(`/api/chat/messages/${messageId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -28,7 +28,7 @@ async function updateMessage(messageId: number, message: string) {
   return await res.json();
 }
 
-async function deleteMessage(messageId: number) {
+async function deleteMessage(messageId: string) {
   const res = await fetch(`/api/chat/messages/${messageId}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete message');
   return true;
@@ -57,7 +57,7 @@ export function ChatPage(): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -71,9 +71,23 @@ export function ChatPage(): JSX.Element {
 
   // Load existing messages so chat persists across navigation
   useEffect(() => {
+    let mounted = true;
+    console.log("Loading chat messages...");
     getChatMessages('default', 100, 0)
-      .then((data) => setMessages(Array.isArray(data) ? data.reverse() : []))
-      .catch(() => setMessages([]));
+      .then((data) => {
+        if (!mounted) return;
+        console.log("Received chat data:", data);
+        const msgs = Array.isArray(data) ? data.slice().reverse() : [];
+        console.log("Processed messages:", msgs);
+        setMessages(msgs);
+      })
+      .catch((error) => {
+        console.error("Error loading chat messages:", error);
+        setMessages([]);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const sendMessage = async () => {
@@ -83,13 +97,13 @@ export function ChatPage(): JSX.Element {
     setIsLoading(true);
 
     const tempUserMessage: ChatMessage = {
-      id: Date.now(),
-      item_id: 0,
+      id: String(Date.now()),
+      item_id: '',
       message: userMessage,
       is_user: true,
       conversation_id: 'default',
       item: {
-        id: 0,
+        id: '',
         kind: 'chat',
         title: `Chat message: ${userMessage.slice(0, 50)}...`,
         content: userMessage,
@@ -127,7 +141,7 @@ export function ChatPage(): JSX.Element {
     cancelEdit();
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     const ok = await deleteMessage(id);
     if (ok) setMessages(prev => prev.filter(m => m.id !== id));
   };
@@ -161,67 +175,76 @@ export function ChatPage(): JSX.Element {
             <p className="text-sm">Send a message to get started</p>
           </div>
         ) : (
-          messages.map((message, index) => (
-            <React.Fragment key={message.id}>
-              {/* Date Header */}
-              {shouldShowDateHeader(message, messages[index - 1]) && (
-                <div className="flex justify-center my-4">
-                  <div className="bg-white px-3 py-1 rounded-full shadow-sm border text-xs text-gray-600 font-medium">
-                    {formatMessageDate(message.item.created_at)}
+          messages.map((message, index) => {
+            console.log("Rendering message:", message);
+            // Safety check for item field
+            if (!message.item) {
+              console.warn("Message missing item field:", message);
+              return null; // Skip rendering this message
+            }
+            
+            return (
+              <React.Fragment key={message.id}>
+                {/* Date Header */}
+                {shouldShowDateHeader(message, messages[index - 1]) && (
+                  <div className="flex justify-center my-4">
+                    <div className="bg-white px-3 py-1 rounded-full shadow-sm border text-xs text-gray-600 font-medium">
+                      {formatMessageDate(message.item.created_at)}
+                    </div>
+                  </div>
+                )}
+
+                {/* Message */}
+                <div className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`group max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.is_user
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white text-gray-900 shadow-sm border'
+                    }`}
+                  >
+                    {editingId === message.id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          className="w-full bg-white/10 text-inherit placeholder:text-inherit/60 border border-white/20 rounded p-2"
+                          rows={3}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={commitEdit} className="p-1 rounded bg-emerald-600 text-white">
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button onClick={cancelEdit} className="p-1 rounded bg-gray-300 text-gray-800">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
+                        <div className="flex items-center justify-between gap-3 mt-1">
+                          <p className={`text-xs ${message.is_user ? 'text-blue-100' : 'text-gray-500'}`}>
+                            {new Date(message.item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                          {message.is_user && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                              <button onClick={() => startEdit(message)} className="p-1 rounded bg-white/20 hover:bg-white/30">
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDelete(message.id)} className="p-1 rounded bg-white/20 hover:bg-white/30">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
-              )}
-
-              {/* Message */}
-              <div className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`group max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.is_user
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-gray-900 shadow-sm border'
-                  }`}
-                >
-                  {editingId === message.id ? (
-                    <div className="space-y-2">
-                      <textarea
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        className="w-full bg-white/10 text-inherit placeholder:text-inherit/60 border border-white/20 rounded p-2"
-                        rows={3}
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={commitEdit} className="p-1 rounded bg-emerald-600 text-white">
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button onClick={cancelEdit} className="p-1 rounded bg-gray-300 text-gray-800">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
-                      <div className="flex items-center justify-between gap-3 mt-1">
-                        <p className={`text-xs ${message.is_user ? 'text-blue-100' : 'text-gray-500'}`}>
-                          {new Date(message.item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                        {message.is_user && (
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                            <button onClick={() => startEdit(message)} className="p-1 rounded bg-white/20 hover:bg-white/30">
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleDelete(message.id)} className="p-1 rounded bg-white/20 hover:bg-white/30">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </React.Fragment>
-          ))
+              </React.Fragment>
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

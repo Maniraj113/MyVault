@@ -2,6 +2,7 @@ import { PageHeader } from '../ui/page_header';
 import { useEffect, useState } from 'react';
 import { createItem, listItems } from '../service/api';
 import type { Item } from '../service/types';
+import { Link } from 'lucide-react';
 
 export function LinksPage(): JSX.Element {
   const [items, setItems] = useState<Item[]>([]);
@@ -20,7 +21,7 @@ export function LinksPage(): JSX.Element {
 
   return (
     <div className="space-y-6 pb-20 lg:pb-0 p-4">
-      <PageHeader title="Links" icon={null as any} />
+      <PageHeader title="Links" icon={<Link className="w-6 h-6" />} />
       <div className="rounded-xl border border-slate-200 bg-white shadow-card p-3 flex gap-2">
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste URL" className="flex-1 rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
         <button onClick={add} className="rounded-md bg-primary-600 text-white px-4 py-2 text-sm">Add</button>

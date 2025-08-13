@@ -1,13 +1,14 @@
 """Expense API endpoints."""
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Path
-from sqlalchemy.orm import Session
+from google.cloud.firestore import Client
 
-from ..db import get_db
+from ..firestore_db import get_db
 from ..schemas import (
     ExpenseCreate, 
     ExpenseOut, 
@@ -26,14 +27,20 @@ from ..service.expense_service import (
 )
 
 router = APIRouter()
+logger = logging.getLogger("myvault.expenses")
 
 
 @router.post("/", response_model=ExpenseOut, summary="Create expense or income")
 def create_expense_entry(payload: ExpenseCreate) -> ExpenseOut:
     """Create a new expense or income entry."""
-    with get_db() as db:
-        expense = create_expense(db, payload)
-        return expense
+    try:
+        with get_db() as db:
+            expense = create_expense(db, payload)
+            logger.info(f"Created expense: {expense.get('id')}")
+            return expense
+    except Exception as e:
+        logger.error(f"Failed to create expense: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create expense: {str(e)}")
 
 
 @router.get("/", response_model=list[ExpenseOut], summary="Get expenses")
@@ -46,9 +53,14 @@ def list_expenses(
     offset: int = Query(0, ge=0, description="Number of records to skip")
 ) -> list[ExpenseOut]:
     """Get expenses with optional filters."""
-    with get_db() as db:
-        expenses = get_expenses(db, is_income, category, start_date, end_date, limit, offset)
-        return expenses
+    try:
+        with get_db() as db:
+            expenses = get_expenses(db, is_income, category, start_date, end_date, limit, offset)
+            logger.info(f"Retrieved {len(expenses)} expenses")
+            return expenses
+    except Exception as e:
+        logger.error(f"Failed to list expenses: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to list expenses: {str(e)}")
 
 
 @router.get("/categories", summary="Get available expense categories")
@@ -63,9 +75,13 @@ def get_category_report(
     end_date: Optional[date] = Query(None, description="End date filter")
 ) -> list[ExpenseReport]:
     """Get expense report grouped by category."""
-    with get_db() as db:
-        report = get_expense_by_category_report(db, start_date, end_date)
-        return report
+    try:
+        with get_db() as db:
+            report = get_expense_by_category_report(db, start_date, end_date)
+            return report
+    except Exception as e:
+        logger.error(f"Failed to get category report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get category report: {str(e)}")
 
 
 @router.get("/report/monthly/{year}/{month}", response_model=MonthlyReport, summary="Get monthly expense report")
@@ -74,31 +90,48 @@ def get_monthly_expense_report(
     month: int = Path(..., ge=1, le=12, description="Month")
 ) -> MonthlyReport:
     """Get monthly expense report."""
-    with get_db() as db:
-        report = get_monthly_report(db, year, month)
-        return report
+    try:
+        with get_db() as db:
+            report = get_monthly_report(db, year, month)
+            return report
+    except Exception as e:
+        logger.error(f"Failed to get monthly report: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get monthly report: {str(e)}")
 
 
 @router.put("/{expense_id}", response_model=ExpenseOut, summary="Update expense")
 def update_expense_entry(
-    expense_id: int = Path(..., description="Expense ID"),
+    expense_id: str = Path(..., description="Expense ID"),
     payload: ExpenseUpdate = ...
 ) -> ExpenseOut:
     """Update an existing expense."""
-    with get_db() as db:
-        expense = update_expense(db, expense_id, payload)
-        if not expense:
-            raise HTTPException(status_code=404, detail="Expense not found")
-        return expense
+    try:
+        with get_db() as db:
+            expense = update_expense(db, expense_id, payload)
+            if not expense:
+                raise HTTPException(status_code=404, detail="Expense not found")
+            return expense
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update expense {expense_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update expense: {str(e)}")
 
 
 @router.delete("/{expense_id}", summary="Delete expense")
 def delete_expense_entry(
-    expense_id: int = Path(..., description="Expense ID")
+    expense_id: str = Path(..., description="Expense ID")
 ) -> dict:
     """Delete an expense."""
-    with get_db() as db:
-        success = delete_expense(db, expense_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Expense not found")
-        return {"message": "Expense deleted successfully"}
+    try:
+        with get_db() as db:
+            success = delete_expense(db, expense_id)
+            if not success:
+                raise HTTPException(status_code=404, detail="Expense not found")
+            logger.info(f"Deleted expense: {expense_id}")
+            return {"message": "Expense deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete expense {expense_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete expense: {str(e)}")

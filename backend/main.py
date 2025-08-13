@@ -1,6 +1,6 @@
 """
 MyVault Backend API
-FastAPI application with SQLite database for personal data management.
+FastAPI application with Firestore database for personal data management.
 """
 from __future__ import annotations
 
@@ -14,27 +14,41 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
+from dotenv import load_dotenv
+import os
 from app.api.routers import api_router
-from app.models import Base
-from app.db import engine
 
 
 def setup_logging():
     """Configure detailed logging with proper encoding for Windows."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler('myvault.log', encoding='utf-8')
-        ]
-    )
+    # Reduce noise: info to file, warnings+ to console; no tracebacks on known client errors
+    app_logger = logging.getLogger("myvault")
+    app_logger.setLevel(logging.INFO)
+
+    fmt = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+
+    file_handler = logging.FileHandler('myvault.log', encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(fmt)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.WARNING)
+    console_handler.setFormatter(fmt)
+
+    # Clear existing handlers to avoid duplication
+    if app_logger.handlers:
+        for h in list(app_logger.handlers):
+            app_logger.removeHandler(h)
+    app_logger.addHandler(file_handler)
+    app_logger.addHandler(console_handler)
+
     logging.getLogger("uvicorn").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
+    load_dotenv()
     setup_logging()
     logger = logging.getLogger("myvault")
 
@@ -55,7 +69,7 @@ def create_app() -> FastAPI:
         - Real-time data synchronization
         - Comprehensive filtering and reporting
         - Mobile-responsive design support
-        - SQLite database backend
+        - Firestore database backend
 
         ### Authentication
         Currently using basic setup. JWT tokens recommended for production.
@@ -82,34 +96,33 @@ def create_app() -> FastAPI:
         allow_headers=["*"]
     )
 
-    Base.metadata.create_all(bind=engine)
+    # Firestore requires no schema creation. Ensure Firestore API and IAM set up in GCP.
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next: Callable) -> Response:
         start_time = time.time()
         logger = logging.getLogger("myvault")
 
-        client_ip = request.client.host if request.client else "unknown"
-        logger.info(f"Request: {request.method} {request.url.path}")
-        logger.info(f"Client: {client_ip}")
-        if request.query_params:
-            logger.info(f"Query Params: {dict(request.query_params)}")
-
         try:
-            response = await call_next(request)
-            process_time = time.time() - start_time
+            client_ip = request.client.host if request.client else "unknown"
+            logger.info(f"Request: {request.method} {request.url.path}")
+            logger.info(f"Client: {client_ip}")
+            if request.query_params:
+                logger.info(f"Query Params: {dict(request.query_params)}")
+        except Exception as e:
+            logger.warning(f"Error logging request details: {str(e)}")
+
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        try:
             status_indicator = "SUCCESS" if response.status_code < 400 else "ERROR"
+            # Avoid dumping full tracebacks into logs; keep response line concise
             logger.info(
                 f"Response: {response.status_code} - {request.method} {request.url.path} - Time: {process_time:.3f}s - Status: {status_indicator}"
             )
-            return response
         except Exception as e:
-            process_time = time.time() - start_time
-            logger.error(
-                f"Error processing {request.method} {request.url.path} | {e} | Time: {process_time:.3f}s",
-                exc_info=True,
-            )
-            return JSONResponse(status_code=500, content={"detail": str(e)})
+            logger.warning(f"Error logging response details: {str(e)}")
+        return response
 
     app.include_router(api_router, prefix="/api")
 
@@ -129,3 +142,6 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+

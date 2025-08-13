@@ -9,9 +9,17 @@ set ROOT=%~dp0..
 set BACKEND_DIR=%ROOT%\backend
 set FRONTEND_DIR=%ROOT%\frontend
 
-REM Start Backend in new window with working directory
+REM Set Google Cloud project for Firestore (replace with your actual Project ID)
+set GOOGLE_CLOUD_PROJECT=myvault-f3f99
+set FIRESTORE_PROJECT_ID=%GOOGLE_CLOUD_PROJECT%
+set FIREBASE_PROJECT_ID=%GOOGLE_CLOUD_PROJECT%
+set FIRESTORE_DATABASE_ID=myvault
+set FIREBASE_STORAGE_BUCKET=myvault-f3f99.firebasestorage.app
+echo Using GCP Project: %GOOGLE_CLOUD_PROJECT%
+
+REM Start Backend in new window with working directory  
 echo Starting Backend Server...
-start "MyVault Backend" /D "%BACKEND_DIR%" cmd /k "call venv\Scripts\activate.bat && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+start "MyVault Backend" /D "%BACKEND_DIR%" cmd /k "call venv\Scripts\activate.bat && python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload"
 
 REM Wait a bit for backend to come up
 echo Waiting 3 seconds for backend to initialize...

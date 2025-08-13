@@ -23,7 +23,7 @@ class ExpenseCategory(str, Enum):
     HEALTH = "health"
 
 
-ItemKind = Literal["link", "note", "doc", "expense", "task", "health", "chat"]
+ItemKind = Literal["link", "note", "doc", "expense", "task", "health", "chat", "file"]
 
 
 class ItemCreate(BaseModel):
@@ -33,7 +33,7 @@ class ItemCreate(BaseModel):
 
 
 class ItemOut(BaseModel):
-    id: int
+    id: str
     kind: ItemKind
     title: str
     content: Optional[str]
@@ -54,8 +54,8 @@ class ExpenseCreate(BaseModel):
 
 
 class ExpenseOut(BaseModel):
-    id: int
-    item_id: int
+    id: str
+    item_id: str
     title: str
     amount: float
     category: ExpenseCategory
@@ -85,8 +85,8 @@ class TaskCreate(BaseModel):
 
 
 class TaskOut(BaseModel):
-    id: int
-    item_id: int
+    id: str
+    item_id: str
     due_at: Optional[datetime]
     is_done: bool
     item: ItemOut
@@ -114,8 +114,8 @@ class ChatMessageUpdate(BaseModel):
 
 
 class ChatMessageOut(BaseModel):
-    id: int
-    item_id: int
+    id: str
+    item_id: str
     message: str
     is_user: bool
     conversation_id: str
@@ -143,5 +143,29 @@ class MonthlyReport(BaseModel):
     total_expense: float
     net_amount: float
     expense_by_category: list[ExpenseReport]
+
+
+class FileUploadOut(BaseModel):
+    id: str
+    item_id: str
+    original_filename: str
+    storage_path: str
+    storage_bucket: str
+    public_url: str
+    content_type: str
+    size: int
+    folder: str
+    uploaded_at: datetime
+    item: ItemOut
+
+    class Config:
+        from_attributes = True
+
+
+class DocumentCreate(BaseModel):
+    title: str
+    content: Optional[str] = None
+    folder: str = Field(default="documents", description="Storage folder (documents, images, etc.)")
+    is_public: bool = Field(default=True, description="Whether file should be publicly accessible")
 
 

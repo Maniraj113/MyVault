@@ -1,189 +1,193 @@
-"""Chat service for handling chat messages and conversations."""
+"""Chat service refactored to Firestore."""
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import uuid4
 
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, case, and_
+from google.cloud.firestore import Client, DocumentReference, FieldFilter
+from google.api_core.exceptions import FailedPrecondition
 
-from ..models import Item, ChatMessage
-from ..schemas import ChatMessageCreate, ChatMessageOut, ChatMessageUpdate
+from ..schemas import ChatMessageCreate
 
 logger = logging.getLogger("myvault.chat_service")
 
 
-def create_chat_message(db: Session, payload: ChatMessageCreate) -> ChatMessage:
-    """Create a new chat message."""
-    logger.info(f"Creating chat message - Conversation: {payload.conversation_id} - Message: {payload.message[:50]}...")
+def create_chat_message(db: Client, payload: ChatMessageCreate) -> dict:
+    now = datetime.now(timezone.utc)
+    item_ref = db.collection("items").document()
+    msg_ref = db.collection("chat_messages").document()
     
-    try:
-        # Create the item first
-        item = Item(
-            kind="chat",
-            title=f"Chat message: {payload.message[:50]}...",
-            content=payload.message
-        )
-        logger.info(f"Adding item to database...")
-        db.add(item)
-        db.flush()
-        logger.info(f"Item created with ID: {item.id}")
-        
-        # Create the chat message
-        chat_message = ChatMessage(
-            item_id=item.id,
-            message=payload.message,
-            is_user=True,
-            conversation_id=payload.conversation_id,
-            status="sent",
-            created_at=datetime.now()
-        )
-        logger.info(f"Adding chat message to database...")
-        db.add(chat_message)
-        db.flush()
-        logger.info(f"Chat message created with ID: {chat_message.id}")
-        
-        # Commit the transaction
-        logger.info(f"Committing transaction...")
-        db.commit()
-        logger.info(f"Transaction committed successfully")
-        
-        # Eagerly load the 'item' relationship and return it
-        logger.info(f"Loading chat message with relationships...")
-        chat_message = db.query(ChatMessage).options(joinedload(ChatMessage.item)).filter(ChatMessage.id == chat_message.id).one()
-        logger.info(f"Successfully created chat message with ID: {chat_message.id}")
-        return chat_message
-        
-    except Exception as e:
-        logger.error(f"Failed to create chat message: {str(e)}")
-        logger.error(f"Exception type: {type(e).__name__}")
-        logger.error(f"Exception details: {str(e)}", exc_info=True)
-        db.rollback()
-        raise
+    # Create item document
+    item_doc = {
+        "id": item_ref.id,
+        "kind": "chat",
+        "title": f"Chat message: {payload.message[:50]}...",
+        "content": payload.message,
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    # Create chat message document
+    chat_doc = {
+        "id": msg_ref.id,
+        "item_id": item_ref.id,
+        "message": payload.message,
+        "is_user": True,
+        "conversation_id": payload.conversation_id,
+        "status": "sent",
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    # Write both documents
+    batch = db.batch()
+    batch.set(item_ref, item_doc)
+    batch.set(msg_ref, chat_doc)
+    batch.commit()
+    
+    # Return chat message with embedded item
+    result = chat_doc.copy()
+    result["item"] = item_doc
+    return result
 
 
-def get_chat_messages(
-    db: Session,
-    conversation_id: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0
-) -> list[ChatMessage]:
-    """Get chat messages, optionally filtered by conversation."""
-    logger.info(f"Fetching chat messages - Conversation: {conversation_id}, limit={limit}, offset={offset}")
+def get_chat_messages(db: Client, conversation_id: Optional[str] = None, limit: int = 50, offset: int = 0) -> list[dict]:
+    logger.info(f"Getting chat messages: conversation_id={conversation_id}, limit={limit}, offset={offset}")
     
     try:
-        query = db.query(ChatMessage).options(joinedload(ChatMessage.item)).join(Item)
-        
+        q = db.collection("chat_messages")
         if conversation_id:
-            query = query.filter(ChatMessage.conversation_id == conversation_id)
+            q = q.where(filter=FieldFilter("conversation_id", "==", conversation_id))
         
-        messages = query.order_by(desc(Item.created_at)).offset(offset).limit(limit).all()
-        logger.info(f"Retrieved {len(messages)} chat messages from database")
+        try:
+            q = q.order_by("created_at", direction="DESCENDING")
+            messages = [d.to_dict() for d in q.offset(offset).limit(limit).stream()]
+        except FailedPrecondition:
+            # Fallback without ordering if index missing
+            messages = [d.to_dict() for d in q.offset(offset).limit(limit).stream()]
+        
+        logger.info(f"Found {len(messages)} chat messages")
+        
+        # Hydrate each message with its item
+        for msg in messages:
+            try:
+                item_id = msg.get("item_id")
+                logger.info(f"Message {msg.get('id')} has item_id: {item_id}")
+                if item_id:
+                    item_snap = db.collection("items").document(item_id).get()
+                    if item_snap.exists:
+                        item_data = item_snap.to_dict()
+                        msg["item"] = item_data
+                        logger.info(f"Attached item to message {msg.get('id')}: {item_data.get('title')}")
+                    else:
+                        logger.warning(f"Item {item_id} not found for message {msg.get('id')}")
+                        # Create a fallback item to prevent frontend crash
+                        msg["item"] = {
+                            "id": item_id or msg.get("id"),
+                            "kind": "chat",
+                            "title": "Chat message",
+                            "content": msg.get("message", ""),
+                            "created_at": msg.get("created_at"),
+                            "updated_at": msg.get("updated_at")
+                        }
+                else:
+                    logger.warning(f"Message {msg.get('id')} has no item_id")
+                    # Create a fallback item to prevent frontend crash
+                    msg["item"] = {
+                        "id": msg.get("id"),
+                        "kind": "chat",
+                        "title": "Chat message",
+                        "content": msg.get("message", ""),
+                        "created_at": msg.get("created_at"),
+                        "updated_at": msg.get("updated_at")
+                    }
+            except Exception as e:
+                logger.error(f"Error hydrating item for message {msg.get('id')}: {str(e)}")
+                # Create a fallback item to prevent frontend crash
+                msg["item"] = {
+                    "id": msg.get("id"),
+                    "kind": "chat",
+                    "title": "Chat message",
+                    "content": msg.get("message", ""),
+                    "created_at": msg.get("created_at"),
+                    "updated_at": msg.get("updated_at")
+                }
+        
+        logger.info(f"Returning {len(messages)} messages with items")
         return messages
         
     except Exception as e:
-        logger.error(f"Failed to retrieve chat messages: {str(e)}")
-        raise
+        logger.error(f"Error in get_chat_messages: {str(e)}", exc_info=True)
+        # Return empty list instead of crashing
+        return []
 
 
-def update_message_status(db: Session, message_id: int, status: str) -> Optional[ChatMessage]:
-    """Update message status (sent, delivered, read)."""
-    logger.info(f"Updating message {message_id} status to {status}")
+def update_message_status(db: Client, message_id: str, status: str) -> Optional[dict]:
+    ref = db.collection("chat_messages").document(str(message_id))
+    if not ref.get().exists:
+        return None
     
-    try:
-        message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
-        if not message:
-            return None
-            
-        message.status = status
-        if status == "delivered" and not message.delivered_at:
-            message.delivered_at = datetime.now()
-        elif status == "read" and not message.read_at:
-            message.read_at = datetime.now()
-            
-        db.commit()
-        db.refresh(message)
-        logger.info(f"Successfully updated message {message_id} status to {status}")
-        return message
-        
-    except Exception as e:
-        logger.error(f"Failed to update message status: {str(e)}")
-        db.rollback()
-        raise
+    updates = {"status": status, "updated_at": datetime.now(timezone.utc)}
+    if status == "delivered":
+        updates["delivered_at"] = datetime.now(timezone.utc)
+    elif status == "read":
+        updates["read_at"] = datetime.now(timezone.utc)
+    
+    ref.set(updates, merge=True)
+    return ref.get().to_dict()
 
-def get_conversations(db: Session, limit: int = 20) -> list[dict]:
-    """Get list of recent conversations with last message preview."""
-    from sqlalchemy import func
+
+def get_conversations(db: Client, limit: int = 20) -> list[dict]:
+    # Get latest message per conversation
+    q = db.collection("chat_messages").order_by("created_at", direction="DESCENDING").limit(1000)
+    messages = [d.to_dict() for d in q.stream()]
     
-    # Get the latest message for each conversation
-    latest_messages = (
-        db.query(
-            ChatMessage.conversation_id,
-            func.max(ChatMessage.created_at).label("last_message_at")
-        )
-        .group_by(ChatMessage.conversation_id)
-        .order_by(desc("last_message_at"))
-        .limit(limit)
-        .subquery()
-    )
+    latest: dict[str, dict] = {}
+    counts: dict[str, int] = {}
+    unread: dict[str, int] = {}
     
-    # Join with messages to get the actual message content
-    conversations = (
-        db.query(
-            ChatMessage,
-            func.count(ChatMessage.id).label("message_count"),
-            func.count(case((ChatMessage.status == 'unread', 1))).label("unread_count")
-        )
-        .join(latest_messages, and_(
-            ChatMessage.conversation_id == latest_messages.c.conversation_id,
-            ChatMessage.created_at == latest_messages.c.last_message_at
-        ))
-        .join(Item)
-        .group_by(ChatMessage.conversation_id, ChatMessage.id, Item.id)
-        .order_by(desc(ChatMessage.created_at))
-        .all()
-    )
+    for m in messages:
+        cid = m.get("conversation_id")
+        counts[cid] = counts.get(cid, 0) + 1
+        unread[cid] = unread.get(cid, 0) + (1 if m.get("status") == "unread" else 0)
+        if cid not in latest:
+            latest[cid] = m
     
+    items = sorted(latest.values(), key=lambda x: x.get("created_at"), reverse=True)[:limit]
     return [
         {
-            "conversation_id": conv.ChatMessage.conversation_id,
+            "conversation_id": it.get("conversation_id"),
             "last_message": {
-                "id": conv.ChatMessage.id,
-                "message": conv.ChatMessage.message,
-                "is_user": conv.ChatMessage.is_user,
-                "status": conv.ChatMessage.status,
-                "created_at": conv.ChatMessage.created_at
+                "id": it.get("id"),
+                "message": it.get("message"),
+                "is_user": it.get("is_user"),
+                "status": it.get("status"),
+                "created_at": it.get("created_at"),
             },
-            "message_count": conv.message_count,
-            "unread_count": conv.unread_count
+            "message_count": counts.get(it.get("conversation_id"), 0),
+            "unread_count": unread.get(it.get("conversation_id"), 0),
         }
-        for conv in conversations
+        for it in items
     ]
 
 
-def update_chat_message(db: Session, message_id: int, payload: ChatMessageCreate) -> Optional[ChatMessage]:
-    message = db.query(ChatMessage).options(joinedload(ChatMessage.item)).filter(ChatMessage.id == message_id).first()
-    if not message:
+def update_chat_message(db: Client, message_id: str, payload: ChatMessageCreate) -> Optional[dict]:
+    ref = db.collection("chat_messages").document(str(message_id))
+    if not ref.get().exists:
         return None
-    message.message = payload.message
-    message.item.content = payload.message
-    message.item.title = f"Chat message: {payload.message[:50]}..."
-    db.commit()
-    db.refresh(message)
-    return message
+    
+    updates = {
+        "message": payload.message,
+        "updated_at": datetime.now(timezone.utc),
+    }
+    ref.set(updates, merge=True)
+    return ref.get().to_dict()
 
 
-def delete_chat_message(db: Session, message_id: int) -> bool:
-    message = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
-    if not message:
+def delete_chat_message(db: Client, message_id: str) -> bool:
+    ref = db.collection("chat_messages").document(str(message_id))
+    if not ref.get().exists:
         return False
-    # delete the parent Item to cascade delete ChatMessage
-    item = db.query(Item).filter(Item.id == message.item_id).first()
-    if item:
-        db.delete(item)
-    else:
-        db.delete(message)
-    db.commit()
+    ref.delete()
     return True

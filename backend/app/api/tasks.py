@@ -1,13 +1,14 @@
 """Task API endpoints."""
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Path
-from sqlalchemy.orm import Session
+from google.cloud.firestore import Client
 
-from ..db import get_db
+from ..firestore_db import get_db
 from ..schemas import TaskCreate, TaskOut, TaskUpdate
 from ..service.task_service import (
     create_task,
@@ -19,14 +20,20 @@ from ..service.task_service import (
 )
 
 router = APIRouter()
+logger = logging.getLogger("myvault.tasks")
 
 
 @router.post("/", response_model=TaskOut, summary="Create task")
 def create_task_entry(payload: TaskCreate) -> TaskOut:
     """Create a new task."""
-    with get_db() as db:
-        task = create_task(db, payload)
-        return task
+    try:
+        with get_db() as db:
+            task = create_task(db, payload)
+            logger.info(f"Created task: {task.get('id')}")
+            return task
+    except Exception as e:
+        logger.error(f"Failed to create task: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
 
 @router.get("/", response_model=list[TaskOut], summary="Get tasks")
@@ -38,9 +45,14 @@ def list_tasks(
     offset: int = Query(0, ge=0, description="Number of tasks to skip")
 ) -> list[TaskOut]:
     """Get tasks with optional filters."""
-    with get_db() as db:
-        tasks = get_tasks(db, is_done, due_date, overdue, limit, offset)
-        return tasks
+    try:
+        with get_db() as db:
+            tasks = get_tasks(db, is_done, due_date, overdue, limit, offset)
+            logger.info(f"Retrieved {len(tasks)} tasks")
+            return tasks
+    except Exception as e:
+        logger.error(f"Failed to list tasks: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to list tasks: {str(e)}")
 
 
 @router.get("/calendar", response_model=list[TaskOut], summary="Get tasks for calendar")
@@ -49,43 +61,66 @@ def get_calendar_tasks(
     end_date: date = Query(..., description="End date for calendar view")
 ) -> list[TaskOut]:
     """Get tasks for calendar view within date range."""
-    with get_db() as db:
-        tasks = get_tasks_for_calendar(db, start_date, end_date)
-        return tasks
+    try:
+        with get_db() as db:
+            tasks = get_tasks_for_calendar(db, start_date, end_date)
+            return tasks
+    except Exception as e:
+        logger.error(f"Failed to get calendar tasks: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get calendar tasks: {str(e)}")
 
 
 @router.put("/{task_id}", response_model=TaskOut, summary="Update task")
 def update_task_entry(
-    task_id: int = Path(..., description="Task ID"),
+    task_id: str = Path(..., description="Task ID"),
     payload: TaskUpdate = ...
 ) -> TaskOut:
     """Update an existing task."""
-    with get_db() as db:
-        task = update_task(db, task_id, payload)
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        return task
+    try:
+        with get_db() as db:
+            task = update_task(db, task_id, payload)
+            if not task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            return task
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update task: {str(e)}")
 
 
 @router.post("/{task_id}/toggle", response_model=TaskOut, summary="Toggle task completion")
 def toggle_task(
-    task_id: int = Path(..., description="Task ID")
+    task_id: str = Path(..., description="Task ID")
 ) -> TaskOut:
     """Toggle task completion status."""
-    with get_db() as db:
-        task = toggle_task_completion(db, task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        return task
+    try:
+        with get_db() as db:
+            task = toggle_task_completion(db, task_id)
+            if not task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            return task
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to toggle task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to toggle task: {str(e)}")
 
 
 @router.delete("/{task_id}", summary="Delete task")
 def delete_task_entry(
-    task_id: int = Path(..., description="Task ID")
+    task_id: str = Path(..., description="Task ID")
 ) -> dict:
     """Delete a task."""
-    with get_db() as db:
-        success = delete_task(db, task_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Task not found")
-        return {"message": "Task deleted successfully"}
+    try:
+        with get_db() as db:
+            success = delete_task(db, task_id)
+            if not success:
+                raise HTTPException(status_code=404, detail="Task not found")
+            logger.info(f"Deleted task: {task_id}")
+            return {"message": "Task deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to delete task: {str(e)}")

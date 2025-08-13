@@ -8,6 +8,7 @@ A full-stack application for managing personal data including chat, expenses, ta
 - **WhatsApp-style Chat Interface**: Real-time messaging with conversation history
 - **Expense & Income Tracking**: Categorized financial management with reporting
 - **Task Management**: Create, track, and manage todos with due dates
+- **Document Storage**: Upload and manage images, PDFs, and other files
 - **Calendar View**: Unified view of tasks and expenses with filtering
 - **Responsive Design**: Mobile-first design that works on all devices
 
@@ -16,7 +17,8 @@ A full-stack application for managing personal data including chat, expenses, ta
 - **Mobile Responsive**: Native mobile app experience without scrolling issues
 - **Real-time Updates**: Live data synchronization
 - **RESTful API**: Comprehensive backend API with Swagger documentation
-- **SQLite Database**: Lightweight, file-based database
+- **Firestore Database**: NoSQL cloud database with real-time sync
+- **Firebase Storage**: Secure file storage for documents and images
 - **Docker Support**: Container-ready for easy deployment
 
 ## Project Structure
@@ -55,6 +57,8 @@ MyVault/
 - Python 3.11+
 - Node.js 18+
 - Git
+- Google Cloud Project with Firestore and Firebase Storage enabled
+- Firebase Admin SDK credentials (service account key)
 
 ### Setup & Run
 
@@ -64,17 +68,23 @@ MyVault/
    cd MyVault
    ```
 
-2. **Setup Backend** (Windows)
+2. **Setup Firebase**
+   - Create a Google Cloud project
+   - Enable Firestore and Firebase Storage
+   - Download service account key JSON file
+   - Set `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+
+3. **Setup Backend** (Windows)
    ```bash
    scripts\setup_backend.bat
    ```
 
-3. **Start Services** (Windows)
+4. **Start Services** (Windows)
    ```bash
    scripts\start_services.bat
    ```
 
-4. **Access Application**
+5. **Access Application**
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/api/docs
@@ -153,6 +163,14 @@ Currently using basic setup. In production, implement JWT tokens.
 #### Calendar API
 - `GET /api/calendar/events` - Get calendar events
 
+#### Files API
+- `POST /api/files/upload` - Upload file (documents, images)
+- `GET /api/files/` - List files with filters
+- `GET /api/files/{id}` - Get file details
+- `GET /api/files/{id}/download` - Download file
+- `DELETE /api/files/{id}` - Delete file
+- `GET /api/files/folders/list` - List available folders
+
 ### Response Formats
 All endpoints return JSON with consistent error handling and status codes.
 
@@ -170,22 +188,27 @@ docker-compose up -d
 
 ### Environment Variables
 - `ENV`: Environment (local/production)
-- `DATABASE_URL`: Database connection string
+- `GOOGLE_CLOUD_PROJECT`: Your Google Cloud project ID
+- `FIRESTORE_DATABASE_ID`: Firestore database ID (default: myvault)
+- `FIREBASE_STORAGE_BUCKET`: Firebase Storage bucket name
+- `GOOGLE_APPLICATION_CREDENTIALS`: Path to service account key file
 - `FRONTEND_ORIGIN`: Frontend URL for CORS
 - `VITE_API_URL`: Backend API URL (frontend)
 
-## Database Schema
+## Database Schema (Firestore)
 
-### Tables
-- **items**: Base table for all content
-- **expenses**: Financial transactions
-- **tasks**: Todo items
-- **chat_messages**: Chat conversations
+### Collections
+- **items**: Base collection for all content types
+- **expenses**: Financial transactions with embedded item data
+- **tasks**: Todo items with embedded item data
+- **chat_messages**: Chat conversations with embedded item data  
+- **files**: File metadata with embedded item data
 
-### Relationships
-- One-to-one relationships between items and specific types
-- Foreign key constraints with cascade delete
-- Indexed fields for performance
+### Data Structure
+- NoSQL document-based structure
+- Embedded relationships for performance
+- Automatic indexing with custom index support
+- Real-time synchronization capabilities
 
 ## Development
 

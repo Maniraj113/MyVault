@@ -1,199 +1,157 @@
-"""Expense service for managing income and expenses."""
+"""Expense service refactored to Firestore."""
 from __future__ import annotations
 
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional
 from calendar import monthrange
 
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, extract, and_
+from google.cloud.firestore import Client, FieldFilter
 
-from ..models import Item, Expense, ExpenseCategory
 from ..schemas import ExpenseCreate, ExpenseUpdate, ExpenseReport, MonthlyReport
 
 logger = logging.getLogger("myvault.expense_service")
 
 
-def create_expense(db: Session, payload: ExpenseCreate) -> Expense:
-    """Create a new expense or income entry."""
-    logger.info(f"Creating {'income' if payload.is_income else 'expense'}: {payload.title} - Amount: {payload.amount} - Category: {payload.category}")
-    
-    try:
-        item = Item(
-            kind="expense",
-            title=payload.title,
-            content=payload.content
-        )
-        db.add(item)
-        db.flush()
-        
-        expense = Expense(
-            item_id=item.id,
-            title=payload.title,
-            amount=payload.amount,
-            category=payload.category,
-            is_income=payload.is_income,
-            occurred_on=payload.occurred_on or datetime.now()
-        )
-        db.add(expense)
-        db.commit()
-        
-        expense = (
-            db.query(Expense)
-            .options(joinedload(Expense.item))
-            .filter(Expense.id == expense.id)
-            .one()
-        )
-        logger.info(f"Successfully created expense/income with ID: {expense.id}")
-        return expense
-        
-    except Exception as e:
-        logger.error(f"Failed to create expense: {str(e)}")
-        db.rollback()
-        raise
+def create_expense(db: Client, payload: ExpenseCreate) -> dict:
+    now = datetime.now(timezone.utc)
+    item_ref = db.collection("items").document()
+    expense_ref = db.collection("expenses").document()
+
+    item_doc = {
+        "id": item_ref.id,
+        "kind": "expense",
+        "title": payload.title,
+        "content": payload.content,
+        "created_at": now,
+        "updated_at": now,
+    }
+    expense_doc = {
+        "id": expense_ref.id,
+        "item_id": item_ref.id,
+        "title": payload.title,
+        "amount": float(payload.amount),
+        "category": payload.category.value if hasattr(payload.category, "value") else str(payload.category),
+        "is_income": bool(payload.is_income),
+        "occurred_on": payload.occurred_on or now,
+        "created_at": now,
+        "updated_at": now,
+        "item": item_doc,
+    }
+
+    batch = db.batch()
+    batch.set(item_ref, item_doc)
+    batch.set(expense_ref, expense_doc)
+    batch.commit()
+
+    expense_doc["item"] = item_doc
+    return expense_doc
 
 
 def get_expenses(
-    db: Session,
+    db: Client,
     is_income: Optional[bool] = None,
-    category: Optional[ExpenseCategory] = None,
+    category: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = 50,
-    offset: int = 0
-) -> list[Expense]:
-    """Get expenses with optional filters."""
-    logger.info(f"Fetching expenses - Filters: income={is_income}, category={category}, dates={start_date} to {end_date}, limit={limit}, offset={offset}")
-    
+    offset: int = 0,
+) -> list[dict]:
+    from google.cloud import firestore
+
+    q = db.collection("expenses")
+    if is_income is not None:
+        q = q.where(filter=FieldFilter("is_income", "==", is_income))
+    if category:
+        q = q.where(filter=FieldFilter("category", "==", category))
+    if start_date:
+        q = q.where(filter=FieldFilter("occurred_on", ">=", datetime.combine(start_date, datetime.min.time())))
+    if end_date:
+        q = q.where(filter=FieldFilter("occurred_on", "<=", datetime.combine(end_date, datetime.max.time())))
     try:
-        query = db.query(Expense).options(joinedload(Expense.item)).join(Item)
-        
-        if is_income is not None:
-            query = query.filter(Expense.is_income == is_income)
-        
-        if category:
-            query = query.filter(Expense.category == category)
-        
-        if start_date:
-            query = query.filter(Expense.occurred_on >= start_date)
-        
-        if end_date:
-            query = query.filter(Expense.occurred_on <= end_date)
-        
-        expenses = query.order_by(Expense.occurred_on.desc()).offset(offset).limit(limit).all()
-        logger.info(f"Retrieved {len(expenses)} expenses from database")
-        return expenses
-        
-    except Exception as e:
-        logger.error(f"Failed to retrieve expenses: {str(e)}")
-        raise
+        q = q.order_by("occurred_on", direction="DESCENDING")
+    except Exception:
+        pass  # Skip ordering if index missing
+    docs = [d.to_dict() for d in q.offset(offset).limit(limit).stream()]
+    # Ensure embedded item is complete for response schema
+    for e in docs:
+        item = e.get("item") or {}
+        if not item or not all(k in item for k in ("kind", "content", "created_at", "updated_at")):
+            item_id = e.get("item_id")
+            if item_id:
+                snap = db.collection("items").document(str(item_id)).get()
+                if snap.exists:
+                    e["item"] = snap.to_dict()
+    return docs
 
 
-def update_expense(db: Session, expense_id: int, payload: ExpenseUpdate) -> Optional[Expense]:
-    """Update an existing expense."""
-    expense = db.query(Expense).options(joinedload(Expense.item)).filter(Expense.id == expense_id).first()
-    if not expense:
+def update_expense(db: Client, expense_id: str, payload: ExpenseUpdate) -> Optional[dict]:
+    ref = db.collection("expenses").document(str(expense_id))
+    snap = ref.get()
+    if not snap.exists:
         return None
-    
+    updates: dict = {"updated_at": datetime.now(timezone.utc)}
     if payload.title is not None:
-        expense.item.title = payload.title
-        expense.title = payload.title
+        updates["title"] = payload.title
     if payload.content is not None:
-        expense.item.content = payload.content
+        updates.setdefault("item", {})["content"] = payload.content
     if payload.amount is not None:
-        expense.amount = payload.amount
+        updates["amount"] = float(payload.amount)
     if payload.category is not None:
-        expense.category = payload.category
+        updates["category"] = payload.category.value if hasattr(payload.category, "value") else str(payload.category)
     if payload.is_income is not None:
-        expense.is_income = payload.is_income
+        updates["is_income"] = bool(payload.is_income)
     if payload.occurred_on is not None:
-        expense.occurred_on = payload.occurred_on
-    
-    expense.item.updated_at = datetime.now()
-    db.commit()
-    
-    return (
-        db.query(Expense)
-        .options(joinedload(Expense.item))
-        .filter(Expense.id == expense.id)
-        .one()
-    )
+        updates["occurred_on"] = payload.occurred_on
+    ref.set(updates, merge=True)
+    result = ref.get().to_dict()
+    # Fill item from items collection if needed
+    if result is not None:
+        item = result.get("item") or {}
+        if not item or not all(k in item for k in ("kind", "content", "created_at", "updated_at")):
+            item_id = result.get("item_id")
+            if item_id:
+                snap = db.collection("items").document(str(item_id)).get()
+                if snap.exists:
+                    result["item"] = snap.to_dict()
+    return result
 
 
-def delete_expense(db: Session, expense_id: int) -> bool:
-    """Delete an expense."""
-    expense = db.query(Expense).filter(Expense.id == expense_id).first()
-    if not expense:
+def delete_expense(db: Client, expense_id: str) -> bool:
+    ref = db.collection("expenses").document(str(expense_id))
+    if not ref.get().exists:
         return False
-    
-    db.delete(expense.item)  # Cascade will delete expense
-    db.commit()
+    ref.delete()
     return True
 
 
 def get_expense_by_category_report(
-    db: Session,
+    db: Client,
     start_date: Optional[date] = None,
-    end_date: Optional[date] = None
+    end_date: Optional[date] = None,
 ) -> list[ExpenseReport]:
-    """Get expense report grouped by category."""
-    query = db.query(
-        Expense.category,
-        Expense.is_income,
-        func.sum(Expense.amount).label("total_amount"),
-        func.count(Expense.id).label("count")
-    ).group_by(Expense.category, Expense.is_income)
-    
-    if start_date:
-        query = query.filter(Expense.occurred_on >= start_date)
-    
-    if end_date:
-        query = query.filter(Expense.occurred_on <= end_date)
-    
-    results = query.all()
-    
-    return [
-        ExpenseReport(
-            category=result.category,
-            total_amount=float(result.total_amount or 0),
-            count=int(result.count or 0),
-            is_income=bool(result.is_income)
-        )
-        for result in results
-    ]
+    items = get_expenses(db, None, None, start_date, end_date, limit=5000, offset=0)
+    agg: dict[tuple[str, bool], dict] = {}
+    for e in items:
+        key = (e.get("category"), bool(e.get("is_income")))
+        cur = agg.setdefault(key, {"category": key[0], "is_income": key[1], "total_amount": 0.0, "count": 0})
+        cur["total_amount"] += float(e.get("amount", 0) or 0)
+        cur["count"] += 1
+    return [ExpenseReport(**a) for a in agg.values()]
 
 
-def get_monthly_report(db: Session, year: int, month: int) -> MonthlyReport:
-    """Get monthly expense report."""
+def get_monthly_report(db: Client, year: int, month: int) -> MonthlyReport:
     start_date = date(year, month, 1)
     _, last_day = monthrange(year, month)
     end_date = date(year, month, last_day)
-    
-    # Get totals
-    income_total = db.query(func.sum(Expense.amount)).filter(
-        and_(
-            Expense.is_income == True,
-            Expense.occurred_on >= start_date,
-            Expense.occurred_on <= end_date
-        )
-    ).scalar() or 0
-    
-    expense_total = db.query(func.sum(Expense.amount)).filter(
-        and_(
-            Expense.is_income == False,
-            Expense.occurred_on >= start_date,
-            Expense.occurred_on <= end_date
-        )
-    ).scalar() or 0
-    
-    # Get category breakdown
+    items = get_expenses(db, None, None, start_date, end_date, limit=5000, offset=0)
+    income_total = sum(float(e.get("amount", 0) or 0) for e in items if e.get("is_income"))
+    expense_total = sum(float(e.get("amount", 0) or 0) for e in items if not e.get("is_income"))
     category_report = get_expense_by_category_report(db, start_date, end_date)
-    
     return MonthlyReport(
         month=f"{year}-{month:02d}",
         total_income=float(income_total),
         total_expense=float(expense_total),
         net_amount=float(income_total) - float(expense_total),
-        expense_by_category=category_report
+        expense_by_category=category_report,
     )
