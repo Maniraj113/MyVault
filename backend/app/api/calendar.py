@@ -15,6 +15,7 @@ router = APIRouter()
 logger = logging.getLogger("myvault.calendar")
 
 
+
 @router.get("/events", summary="Get calendar events")
 def get_calendar_events(
     start_date: date = Query(..., description="Start date for calendar view"),
