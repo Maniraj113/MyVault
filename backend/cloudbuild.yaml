@@ -1,0 +1,71 @@
+# Cloud Build configuration for MyVault Backend
+# This builds and deploys the FastAPI backend to Cloud Run
+# Run from: gcloud builds submit --config=backend/cloudbuild.yaml .
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-backend:$BUILD_ID'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-backend:latest'
+      - '-f'
+      - './backend/Dockerfile'
+      - './backend'
+    id: 'build-backend'
+
+  # Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-backend'
+    id: 'push-backend'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'myvault-backend'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-backend:latest'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8000'
+      - '--set-env-vars'
+      - 'ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--concurrency'
+      - '10'
+      - '--max-instances'
+      - '5'
+      - '--min-instances'
+      - '0'
+      - '--timeout'
+      - '300'
+    id: 'deploy-backend'
+
+# Configuration for the build
+options:
+  logging: CLOUD_LOGGING_ONLY
+ 
+
+# Substitution variables (can be overridden in trigger)
+substitutions:
+  _REGION: 'asia-south1'
+  _REPOSITORY: 'myvault-repo'
+
+# Images to be stored in Artifact Registry
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-backend'

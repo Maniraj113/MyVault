@@ -1,0 +1,87 @@
+# Cloud Build configuration for MyVault Frontend
+# This builds and deploys the React frontend to Cloud Run
+# Run from: gcloud builds submit --config=frontend/cloudbuild.yaml .
+
+steps:
+  # Build the Docker image with build args for API URL
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-frontend:$BUILD_ID'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-frontend:latest'
+      - '--build-arg'
+      - 'VITE_API_URL=https://myvault-backend-$PROJECT_ID.${_REGION}.run.app/api'
+      - '--build-arg'
+      - 'VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - '-f'
+      - './frontend/Dockerfile'
+      - './frontend'
+    id: 'build-frontend'
+
+  # Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-frontend'
+    id: 'push-frontend'
+
+  # Deploy to Cloud Run with traffic management
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'myvault-frontend'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-frontend:latest'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '80'
+      - '--memory'
+      - '256Mi'
+      - '--cpu'
+      - '1'
+      - '--concurrency'
+      - '80'
+      - '--max-instances'
+      - '10'
+      - '--min-instances'
+      - '0'
+      - '--timeout'
+      - '60'
+      - '--no-traffic'
+    id: 'deploy-frontend'
+
+  # Update traffic to new revision (gradual rollout)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update-traffic'
+      - 'myvault-frontend'
+      - '--to-latest'
+      - '--region'
+      - '${_REGION}'
+    id: 'update-traffic'
+
+# Configuration for the build
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_STANDARD_2'
+
+# Substitution variables (can be overridden in trigger)
+substitutions:
+  _REGION: 'asia-south1'
+  _REPOSITORY: 'myvault-repo'
+
+# Images to be stored in Artifact Registry
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-frontend'

@@ -23,12 +23,12 @@ COPY . .
 RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
 
-# Expose port
+# Expose port (Cloud Run will provide PORT env var, default 8000 for local)
 EXPOSE 8000
 
-# Health check
+# Health check - Use PORT env var if available
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
-# Start the application
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the application - Use PORT env var from Cloud Run
+CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
