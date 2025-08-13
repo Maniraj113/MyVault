@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, X, Eye } from 'lucide-react';
 
 interface CalendarEvent {
   id: number;
@@ -20,6 +20,8 @@ export function CalendarPage(): JSX.Element {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [viewType, setViewType] = useState<ViewType>('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showEventModal, setShowEventModal] = useState(false);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -115,6 +117,14 @@ export function CalendarPage(): JSX.Element {
     return events.filter(event => event.date === dateStr);
   };
 
+  const handleDayClick = (day: Date) => {
+    const dayEvents = getEventsForDate(day);
+    if (dayEvents.length > 0) {
+      setSelectedDate(day);
+      setShowEventModal(true);
+    }
+  };
+
   const days = getDaysInMonth(currentDate);
 
   return (
@@ -182,27 +192,46 @@ export function CalendarPage(): JSX.Element {
 
             const dayEvents = getEventsForDate(day);
             const isToday = day.toDateString() === new Date().toDateString();
+            const hasEvents = dayEvents.length > 0;
 
             return (
-              <div key={index} className="p-1 border-b border-r border-gray-100 overflow-hidden">
+              <div 
+                key={index} 
+                className={`p-1 border-b border-r border-gray-100 overflow-hidden ${
+                  hasEvents ? 'cursor-pointer hover:bg-blue-50' : ''
+                }`}
+                onClick={() => hasEvents && handleDayClick(day)}
+              >
                 <div className={`text-sm font-medium mb-1 ${
                   isToday ? 'text-blue-600' : 'text-gray-900'
                 }`}>
                   {day.getDate()}
                 </div>
-                {/* Compact indicators */}
-                <div className="flex gap-1 items-center">
-                  {(() => {
-                    const income = Number(dayEvents.filter(e => e.type === 'expense' && e.is_income).reduce((s, e) => s + Number(e.amount || 0), 0));
-                    const expenseTotal = Number(dayEvents.filter(e => e.type === 'expense' && !e.is_income).reduce((s, e) => s + Number(e.amount || 0), 0));
-                    return (
-                      <>
-                        {income > 0 && <span title={`+₹${income.toFixed(2)}`} className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"></span>}
-                        {expenseTotal > 0 && <span title={`-₹${expenseTotal.toFixed(2)}`} className="inline-block h-2.5 w-2.5 rounded-full bg-red-500"></span>}
-                      </>
-                    );
-                  })()}
+                
+                {/* Event indicators with tooltips */}
+                <div className="flex flex-wrap gap-1 items-center">
+                  {dayEvents.slice(0, 3).map((event, eventIndex) => (
+                    <div
+                      key={eventIndex}
+                      className={`inline-block h-2.5 w-2.5 rounded-full ${
+                        event.type === 'task' 
+                          ? event.is_done ? 'bg-green-500' : 'bg-blue-500'
+                          : event.is_income ? 'bg-emerald-500' : 'bg-red-500'
+                      }`}
+                      title={`${event.title} - ${event.type}${event.amount ? ` - ₹${event.amount}` : ''}`}
+                    />
+                  ))}
+                  {dayEvents.length > 3 && (
+                    <span className="text-xs text-gray-500">+{dayEvents.length - 3}</span>
+                  )}
                 </div>
+                
+                {/* Event count */}
+                {hasEvents && (
+                  <div className="text-xs text-gray-600 mt-1">
+                    {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -214,29 +243,126 @@ export function CalendarPage(): JSX.Element {
         <h3 className="text-sm font-medium text-gray-900 mb-2">Legend</h3>
         <div className="flex flex-wrap gap-4 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-100 rounded"></div>
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
             <span>Pending Tasks</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-100 rounded"></div>
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             <span>Completed Tasks</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-emerald-100 rounded"></div>
+            <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
             <span>Income</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-100 rounded"></div>
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
             <span>Expenses</span>
           </div>
         </div>
       </div>
+
+      {/* Event Modal */}
+      {showEventModal && selectedDate && (
+        <EventModal
+          date={selectedDate}
+          events={getEventsForDate(selectedDate)}
+          onClose={() => {
+            setShowEventModal(false);
+            setSelectedDate(null);
+          }}
+        />
+      )}
 
       {isLoading && (
         <div className="flex justify-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Event Modal Component
+function EventModal({ date, events, onClose }: { date: Date; events: CalendarEvent[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Events for {date.toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </h2>
+          <button 
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-4 max-h-96 overflow-y-auto">
+          {events.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No events for this date</p>
+          ) : (
+            <div className="space-y-3">
+              {events.map((event, index) => (
+                <div 
+                  key={`${event.id}-${index}`}
+                  className={`p-3 rounded-lg border ${
+                    event.type === 'task' 
+                      ? event.is_done ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
+                      : event.is_income ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900">{event.title}</h3>
+                      <p className="text-sm text-gray-600 capitalize">
+                        {event.type} {event.time && `• ${event.time}`}
+                      </p>
+                      {event.type === 'expense' && event.amount && (
+                        <p className={`text-sm font-medium ${
+                          event.is_income ? 'text-emerald-600' : 'text-red-600'
+                        }`}>
+                          {event.is_income ? '+' : '-'}₹{event.amount.toFixed(2)}
+                        </p>
+                      )}
+                      {event.type === 'expense' && event.category && (
+                        <p className="text-xs text-gray-500 mt-1">{event.category}</p>
+                      )}
+                      {event.type === 'task' && (
+                        <p className={`text-xs mt-1 ${
+                          event.is_done ? 'text-green-600' : 'text-blue-600'
+                        }`}>
+                          {event.is_done ? 'Completed' : 'Pending'}
+                        </p>
+                      )}
+                    </div>
+                    <div className={`ml-3 w-3 h-3 rounded-full flex-shrink-0 ${
+                      event.type === 'task' 
+                        ? event.is_done ? 'bg-green-500' : 'bg-blue-500'
+                        : event.is_income ? 'bg-emerald-500' : 'bg-red-500'
+                    }`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 border-t bg-gray-50">
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

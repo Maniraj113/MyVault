@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from './cn';
 import { useMemo, useState, useEffect } from 'react';
 import React from 'react';
@@ -41,6 +41,7 @@ export function AppLayout(): JSX.Element {
 
 function TopBar(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
   // Recent popover removed; use dedicated /recent screen
 
   const handleSearch = (e: React.FormEvent) => {
@@ -50,12 +51,19 @@ function TopBar(): JSX.Element {
     }
   };
 
+  const handleLogoClick = () => {
+    navigate('/inbox'); // Navigate to home screen
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 text-white">
       <div className="w-full px-4 py-3 lg:py-4">
         <div className="flex items-center justify-between gap-4 max-w-none relative">
           {/* Left side - Logo and Title */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div 
+            className="flex items-center gap-3 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={handleLogoClick}
+          >
             <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-md ring-1 ring-white/20" />
             <div className="text-2xl font-bold tracking-tight">MyVault</div>
           </div>

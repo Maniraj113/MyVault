@@ -3,16 +3,12 @@ import {
   Heart,
   Upload,
   Search,
-  Filter,
   Grid,
   List,
   Download,
   Trash2,
   Eye,
   File,
-  ImageIcon,
-  Video,
-  Music,
   Plus,
   X,
   FileText,
@@ -69,21 +65,33 @@ export function HealthPage(): JSX.Element {
   const loadDocuments = async () => {
     try {
       const docs = await listItems({ kind: 'health', limit: 100 });
-      setDocuments(docs.map((item: any) => {
-        const content = item.content ? JSON.parse(item.content) : {};
+      console.log('Loaded health documents:', docs); // Debug log
+      
+      const processedDocs = docs.map((item: any) => {
+        let content: any = {};
+        try {
+          content = item.content ? JSON.parse(item.content) : {};
+        } catch (e) {
+          console.warn('Failed to parse content for item:', item.id, e);
+          content = {};
+        }
+        
         return {
           id: item.id,
           title: item.title,
           created_at: item.created_at,
           updated_at: item.updated_at,
-          fileUrl: content.fileUrl,
-          fileName: content.fileName,
-          fileSize: content.fileSize,
-          fileType: content.fileType,
-          healthCategory: content.healthCategory,
-          person: content.person,
+          fileUrl: content.fileUrl || content.url,
+          fileName: content.fileName || content.originalName,
+          fileSize: content.fileSize || content.size,
+          fileType: content.fileType || getFileTypeFromMime(content.mimeType),
+          healthCategory: content.healthCategory || 'other',
+          person: content.person || 'Unknown',
         };
-      }));
+      });
+      
+      console.log('Processed documents:', processedDocs); // Debug log
+      setDocuments(processedDocs);
     } catch (error) {
       console.error('Failed to load health documents:', error);
     }
@@ -207,6 +215,7 @@ export function HealthPage(): JSX.Element {
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <Heart className="w-16 h-16 mb-4 text-gray-300" />
             <p className="text-lg font-medium">No health records found</p>
+            <p className="text-sm text-gray-400">Upload your first health record to get started</p>
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -225,16 +234,11 @@ export function HealthPage(): JSX.Element {
   );
 }
 
-// Components (HealthDocumentCard, HealthDocumentRow, UploadHealthModal, HealthDocumentViewer) would be defined below,
-// similar to docs_page.tsx, but tailored for HealthDocument interface and categories.
-// For brevity, I'm omitting the full component definitions here but they follow the same pattern.
-// Let's create the Card component as an example.
-
 function HealthDocumentCard({ document, onView, onDelete }: { document: HealthDocument; onView: () => void; onDelete: () => void; }) {
   const CategoryIcon = HEALTH_CATEGORIES.find(c => c.value === document.healthCategory)?.icon || File;
 
   return (
-    <div className="group relative aspect-[3/4] bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div className="group relative aspect-[3/4] bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={onView}>
       {document.fileType === 'image' && document.fileUrl ? (
         <img src={document.fileUrl} alt={document.title} className="w-full h-full object-cover rounded-lg" />
       ) : (
@@ -247,8 +251,8 @@ function HealthDocumentCard({ document, onView, onDelete }: { document: HealthDo
       
       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
         <div className="flex gap-2">
-          <button onClick={onView} className="p-2 bg-white rounded-full hover:bg-gray-100"><Eye className="w-4 h-4" /></button>
-          <button onClick={onDelete} className="p-2 bg-white rounded-full hover:bg-gray-100"><Trash2 className="w-4 h-4 text-red-500" /></button>
+          <button onClick={(e) => { e.stopPropagation(); onView(); }} className="p-2 bg-white rounded-full hover:bg-gray-100"><Eye className="w-4 h-4" /></button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 bg-white rounded-full hover:bg-gray-100"><Trash2 className="w-4 h-4 text-red-500" /></button>
         </div>
       </div>
       
@@ -260,11 +264,10 @@ function HealthDocumentCard({ document, onView, onDelete }: { document: HealthDo
   );
 }
 
-// And the other components... (Row, Modal, Viewer) - I will add them in a subsequent step for clarity.
 function HealthDocumentRow({ document, onView, onDelete }: { document: HealthDocument; onView: () => void; onDelete: () => void; }) {
   const CategoryIcon = HEALTH_CATEGORIES.find(c => c.value === document.healthCategory)?.icon || File;
   return (
-    <div className="flex items-center gap-4 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm">
+    <div className="flex items-center gap-4 p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm cursor-pointer" onClick={onView}>
       <CategoryIcon className="w-6 h-6 text-red-500 flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="font-medium text-gray-900 truncate">{document.title}</p>
@@ -273,8 +276,8 @@ function HealthDocumentRow({ document, onView, onDelete }: { document: HealthDoc
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <button onClick={onView} className="p-2 text-gray-400 hover:text-gray-600"><Eye className="w-4 h-4" /></button>
-        <button onClick={onDelete} className="p-2 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); onView(); }} className="p-2 text-gray-400 hover:text-gray-600"><Eye className="w-4 h-4" /></button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
       </div>
     </div>
   );
@@ -330,28 +333,71 @@ function UploadHealthModal({ onClose, onUpload, isUploading }: { onClose: () => 
   );
 }
 
+function HealthDocumentViewer({ document: doc, onClose }: { document: HealthDocument; onClose: () => void; }) {
+  const handleDownload = () => {
+    if (doc.fileUrl) {
+      const link = document.createElement('a');
+      link.href = doc.fileUrl;
+      link.download = doc.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
-function HealthDocumentViewer({ document, onClose }: { document: HealthDocument; onClose: () => void; }) {
   return (
      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-bold truncate">{document.title}</h2>
+          <h2 className="text-xl font-bold truncate">{doc.title}</h2>
           <div className="flex items-center gap-2">
-            {document.fileUrl && <a href={document.fileUrl} download={document.title} className="p-2 text-gray-400 hover:text-gray-600"><Download className="w-5 h-5" /></a>}
+            {doc.fileUrl && (
+              <button 
+                onClick={handleDownload}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                title="Download file"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
             <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
           </div>
         </div>
         <div className="flex-1 overflow-auto p-4">
-          {document.fileType === 'image' && document.fileUrl ? (
-            <img src={document.fileUrl} alt={document.title} className="max-w-full max-h-full object-contain mx-auto" />
+          {doc.fileType === 'image' && doc.fileUrl ? (
+            <img src={doc.fileUrl} alt={doc.title} className="max-w-full max-h-full object-contain mx-auto" />
           ) : (
             <div className="text-center py-10">
               <File className="w-16 h-16 mx-auto text-gray-300" />
               <p className="mt-2 text-lg">No preview available</p>
               <p className="text-sm text-gray-500">Download the file to view.</p>
+              {doc.fileUrl && (
+                <button 
+                  onClick={handleDownload}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Download File
+                </button>
+              )}
             </div>
           )}
+        </div>
+        {/* Document Info */}
+        <div className="p-4 border-t bg-gray-50">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-gray-700">Person:</span> {doc.person}
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Category:</span> {doc.healthCategory}
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">File Size:</span> {doc.fileSize ? formatFileSize(doc.fileSize) : 'Unknown'}
+            </div>
+            <div>
+              <span className="font-medium text-gray-700">Uploaded:</span> {new Date(doc.created_at).toLocaleDateString()}
+            </div>
+          </div>
         </div>
       </div>
     </div>

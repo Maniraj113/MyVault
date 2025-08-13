@@ -53,6 +53,11 @@ def create_app() -> FastAPI:
     logger = logging.getLogger("myvault")
 
     settings = get_settings()
+    
+    # Log environment and CORS configuration
+    logger.info(f"Starting MyVault API in {settings.environment} environment")
+    logger.info(f"CORS origins: {settings.cors_origins}")
+    logger.info(f"Using database: {settings.firestore_database_id}")
 
     app = FastAPI(
         title=settings.app_name,
@@ -88,12 +93,14 @@ def create_app() -> FastAPI:
         }
     )
 
+    # Enhanced CORS configuration
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"]
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["*"]
     )
 
     # Firestore requires no schema creation. Ensure Firestore API and IAM set up in GCP.
@@ -128,11 +135,11 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     async def root():
-        return {"message": "MyVault API", "version": "1.0.0", "docs": "/api/docs"}
+        return {"message": "MyVault API", "version": "1.0.0", "docs": "/api/docs", "environment": settings.environment}
 
     @app.get("/health")
     async def health_check():
-        return {"status": "healthy"}
+        return {"status": "healthy", "environment": settings.environment, "database": settings.firestore_database_id}
 
     return app
 

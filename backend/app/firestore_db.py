@@ -7,6 +7,7 @@ import logging
 
 from google.cloud import firestore
 from google.auth import default as google_auth_default
+from app.config.settings import get_settings
 
 logger = logging.getLogger("myvault.firestore")
 
@@ -35,7 +36,11 @@ def get_client() -> firestore.Client:
             raise RuntimeError(
                 "Firestore project ID not found. Set env var GOOGLE_CLOUD_PROJECT to your project ID (e.g., myvault-f3f99)."
             )
-        database_id = os.getenv("FIRESTORE_DATABASE_ID", "myvault")
+        
+        # Get database ID from settings (environment-based)
+        settings = get_settings()
+        database_id = settings.firestore_database_id
+        
         logger.info(f"Initializing Firestore client for project: {project_id}, database: {database_id}")
         _client = firestore.Client(project=project_id, database=database_id)
     return _client
