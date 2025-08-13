@@ -39,7 +39,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--port'
-      - '8000'
+      - '8080'
       - '--set-env-vars'
       - 'ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
       - '--memory'

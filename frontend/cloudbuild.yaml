@@ -28,7 +28,7 @@ steps:
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/myvault-frontend'
     id: 'push-frontend'
 
-  # Deploy to Cloud Run with traffic management
+  # Deploy to Cloud Run (first deployment will serve traffic immediately)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -56,21 +56,7 @@ steps:
       - '0'
       - '--timeout'
       - '60'
-      - '--no-traffic'
     id: 'deploy-frontend'
-
-  # Update traffic to new revision (gradual rollout)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
-    args:
-      - 'run'
-      - 'services'
-      - 'update-traffic'
-      - 'myvault-frontend'
-      - '--to-latest'
-      - '--region'
-      - '${_REGION}'
-    id: 'update-traffic'
 
 # Configuration for the build
 options:
