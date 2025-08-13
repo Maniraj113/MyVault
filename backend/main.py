@@ -14,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from dotenv import load_dotenv
 import os
 from app.api.routers import api_router
 
@@ -48,7 +47,6 @@ def setup_logging():
 
 def create_app() -> FastAPI:
     """Create and configure FastAPI application."""
-    load_dotenv()
     setup_logging()
     logger = logging.getLogger("myvault")
 

@@ -38,6 +38,15 @@ class Settings(BaseModel):
                     "http://localhost:5173",
                     "http://localhost:3000"
                 ]
+        
+        # Validate required environment variables
+        if self.environment == "production":
+            if not os.getenv("GOOGLE_CLOUD_PROJECT"):
+                raise ValueError("GOOGLE_CLOUD_PROJECT environment variable is required in production")
+            if not os.getenv("FIRESTORE_DATABASE_ID"):
+                raise ValueError("FIRESTORE_DATABASE_ID environment variable is required in production")
+            if not os.getenv("CORS_ORIGINS"):
+                raise ValueError("CORS_ORIGINS environment variable is required in production")
 
 
 def get_settings() -> "Settings":

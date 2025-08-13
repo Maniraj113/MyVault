@@ -1,5 +1,14 @@
-// Prefer relative proxy during dev to avoid CORS entirely; allow override in prod
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Global variables defined by Vite build process
+declare global {
+  const __VITE_API_URL__: string;
+  const __VITE_APP_NAME__: string;
+  const __VITE_APP_VERSION__: string;
+  const __VITE_ENABLE_DEBUG__: string;
+  const __VITE_ENABLE_ANALYTICS__: string;
+}
+
+// API base URL - defined by Vite build process
+const API_BASE = __VITE_API_URL__;
 
 export type ListParams = { kind?: string; limit?: number; offset?: number };
 
