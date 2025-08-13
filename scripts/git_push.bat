@@ -127,13 +127,17 @@ echo Current branch: %CURRENT_BRANCH%
 :: Navigate to project root
 cd ..
 
-:: Remove all __pycache__ directories from Git tracking
-echo Removing __pycache__ directories from Git tracking...
+:: Remove all __pycache__ directories and credentials from Git tracking
+echo Removing __pycache__ directories and credentials from Git tracking...
 git rm -r --cached "**/__pycache__" > nul 2>&1
 git rm -r --cached "backend/**/__pycache__" > nul 2>&1
 git rm -r --cached "backend/__pycache__" > nul 2>&1
 git rm -r --cached "ai_agent/**/__pycache__" > nul 2>&1
 git rm -r --cached "log_analyser/**/__pycache__" > nul 2>&1
+
+:: Remove credentials if they exist in tracking
+git rm --cached "backend/credentials/*.json" > nul 2>&1
+git rm --cached "**/credentials/*.json" > nul 2>&1
 
 :: Get current timestamp for commit message
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
