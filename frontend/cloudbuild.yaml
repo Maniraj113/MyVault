@@ -42,8 +42,7 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
-      - '--port'
-      - '80'
+      # Port will be provided by Cloud Run via PORT environment variable
       - '--memory'
       - '256Mi'
       - '--cpu'
