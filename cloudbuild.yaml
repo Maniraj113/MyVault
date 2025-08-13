@@ -15,7 +15,7 @@ steps:
       - |
         docker build \
           -t gcr.io/$PROJECT_ID/myvault-frontend \
-          --build-arg VITE_API_URL=https://myvault-api-$PROJECT_ID.asia-southeast1.run.app/api \
+          --build-arg VITE_API_URL=https://myvault-api-$PROJECT_ID.asia-south1.run.app/api \
           --build-arg VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID \
           -f ./frontend/Dockerfile \
           ./frontend
@@ -37,12 +37,12 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/myvault-backend'
       - '--region'
-      - 'asia-southeast1'
+      - 'asia-south1' # CHANGE: Changed region to asia-south1
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,PROD_FRONTEND_ORIGIN=https://myvault-web-$PROJECT_ID.asia-southeast1.run.app'
+      - 'ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,PROD_FRONTEND_ORIGIN=https://myvault-web-$PROJECT_ID.asia-south1.run.app'
       - '--concurrency'
       - '10'
       - '--max-instances'
@@ -60,11 +60,11 @@ steps:
       - '--platform'
       - 'managed'
       - '--region'
-      - 'asia-southeast1'
+      - 'asia-south1' # CHANGE: Changed region to asia-south1
       - '--allow-unauthenticated'
       - '--no-traffic'  # CHANGE: Deploy new revision without traffic shift
       - '--set-env-vars'
-      - 'VITE_API_URL=https://myvault-api-$PROJECT_ID.asia-southeast1.run.app/api,VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'VITE_API_URL=https://myvault-api-$PROJECT_ID.asia-south1.run.app/api,VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
       - '--concurrency'
       - '80'
       - '--max-instances'
@@ -81,7 +81,7 @@ steps:
       - 'myvault-web'
       - '--to-latest'
       - '--region'
-      - 'asia-southeast1'
+      - 'asia-south1' # CHANGE: Changed region to asia-south1   
     id: 'update-traffic-frontend'
 
 options:
