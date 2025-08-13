@@ -20,9 +20,6 @@ steps:
           -f ./frontend/Dockerfile \
           ./frontend
     id: 'build-frontend'
-    volumes:
-      - name: 'npm-cache'
-        path: '/npm-cache'
 
   # Push images (UNCHANGED)
   - name: 'gcr.io/cloud-builders/docker'
@@ -59,7 +56,7 @@ steps:
       - 'deploy'
       - 'myvault-web'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/myvault-frontend'
+      - 'gcr.io/$PROJECT_ID/myvault-web'
       - '--platform'
       - 'managed'
       - '--region'
