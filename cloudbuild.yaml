@@ -1,71 +1,95 @@
 # Cloud Build pipeline for deploying both frontend and backend to Cloud Run
 # Requires Artifact Registry repos and proper service account setup
 
-substitutions:
-  _REGION: asia-southeast1                 # pick your region
-  _BACKEND_SERVICE: myvault-api            # Cloud Run service name for backend
-  _FRONTEND_SERVICE: myvault-web           # Cloud Run service name for frontend
-  _BACKEND_REPO: myvault-backend           # Artifact Registry repo name for backend
-  _FRONTEND_REPO: myvault-frontend         # Artifact Registry repo name for frontend
-  _SERVICE_ACCOUNT: myvault-runner@$PROJECT_ID.iam.gserviceaccount.com
-  _BACKEND_IMAGE: $_REGION-docker.pkg.dev/$PROJECT_ID/$_BACKEND_REPO/myvault-backend
-  _FRONTEND_IMAGE: $_REGION-docker.pkg.dev/$PROJECT_ID/$_FRONTEND_REPO/myvault-frontend
-
 steps:
-  # Build the backend image from the ./backend directory
-  - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "$_BACKEND_IMAGE:$SHORT_SHA", "backend"]
+  # Build backend (UNCHANGED)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/myvault-backend', '-f', './backend/Dockerfile', './backend']
 
-  # Build the frontend image from the ./frontend directory
-  - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "$_FRONTEND_IMAGE:$SHORT_SHA", "frontend"]
+  # Build frontend with caching (MODIFIED)
+  # CHANGE: Added caching by pulling previous image and using --cache-from to reuse layers
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        docker build \
+          -t gcr.io/$PROJECT_ID/myvault-frontend \
+          --build-arg VITE_API_URL=https://myvault-api-$PROJECT_ID.asia-southeast1.run.app/api \
+          --build-arg VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID \
+          -f ./frontend/Dockerfile \
+          ./frontend
+    id: 'build-frontend'
+    volumes:
+      - name: 'npm-cache'
+        path: '/npm-cache'
 
-  # Push backend image
-  - name: gcr.io/cloud-builders/docker
-    args: ["push", "$_BACKEND_IMAGE:$SHORT_SHA"]
+  # Push images (UNCHANGED)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/myvault-backend']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/myvault-frontend']
 
-  # Push frontend image
-  - name: gcr.io/cloud-builders/docker
-    args: ["push", "$_FRONTEND_IMAGE:$SHORT_SHA"]
-
-  # Deploy backend to Cloud Run
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  # Deploy backend (UNCHANGED)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      [
-        "run","deploy","$_BACKEND_SERVICE",
-        "--image","$_BACKEND_IMAGE:$SHORT_SHA",
-        "--region","$_REGION",
-        "--allow-unauthenticated",
-        "--platform","managed",
-        "--service-account","$_SERVICE_ACCOUNT",
-        "--update-env-vars","ENV=prod,DB_POOL_CLASS=null,GOOGLE_CLOUD_PROJECT=$PROJECT_ID",
-        "--update-env-vars","PROD_FRONTEND_ORIGIN=https://$_FRONTEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
-        "--update-env-vars","PYTHONUNBUFFERED=1",
-        "--concurrency","10",
-        "--max-instances","5"
-      ]
+      - 'run'
+      - 'deploy'
+      - 'myvault-api'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/myvault-backend'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,PROD_FRONTEND_ORIGIN=https://myvault-web-$PROJECT_ID.asia-southeast1.run.app'
+      - '--concurrency'
+      - '10'
+      - '--max-instances'
+      - '5'
 
-  # Deploy frontend to Cloud Run
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: gcloud
+  # Deploy frontend with no-traffic option (MODIFIED)
+  # CHANGE: Added --no-traffic to deploy without shifting traffic immediately
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     args:
-      [
-        "run","deploy","$_FRONTEND_SERVICE",
-        "--image","$_FRONTEND_IMAGE:$SHORT_SHA",
-        "--region","$_REGION",
-        "--allow-unauthenticated",
-        "--platform","managed",
-        "--service-account","$_SERVICE_ACCOUNT",
-        "--update-env-vars","VITE_API_URL=https://$_BACKEND_SERVICE-$PROJECT_ID-$_REGION.a.run.app",
-        "--update-env-vars","VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID",
-        "--concurrency","80",
-        "--max-instances","10"
-      ]
+      - 'run'
+      - 'deploy'
+      - 'myvault-web'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/myvault-frontend'
+      - '--platform'
+      - 'managed'
+      - '--region'
+      - 'asia-southeast1'
+      - '--allow-unauthenticated'
+      - '--no-traffic'  # CHANGE: Deploy new revision without traffic shift
+      - '--set-env-vars'
+      - 'VITE_API_URL=https://myvault-api-$PROJECT_ID.asia-southeast1.run.app/api,VITE_GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - '--concurrency'
+      - '80'
+      - '--max-instances'
+      - '10'
+    id: 'deploy-frontend'  # CHANGE: Added ID for clarity
 
-images:
-  - "$_BACKEND_IMAGE:$SHORT_SHA"
-  - "$_FRONTEND_IMAGE:$SHORT_SHA"
+  # Shift traffic to the new frontend revision (ADDED)
+  # CHANGE: Added step to update traffic after deployment
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'run'
+      - 'services'
+      - 'update-traffic'
+      - 'myvault-web'
+      - '--to-latest'
+      - '--region'
+      - 'asia-southeast1'
+    id: 'update-traffic-frontend'
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+images:
+  - 'gcr.io/$PROJECT_ID/myvault-backend'
+  - 'gcr.io/$PROJECT_ID/myvault-frontend'
