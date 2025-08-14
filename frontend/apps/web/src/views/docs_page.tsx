@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FileImage, Upload, FolderPlus, X, Grid, Folder, RefreshCw } from 'lucide-react';
-import { uploadFile, updateItem, createItem, listItems, deleteItem, getFiles } from '../service/api';
+import { uploadFile, updateItem, deleteItem, getFiles } from '../service/api';
 import { DocumentCard } from '../components/documents/DocumentCard';
 import { FolderView } from '../components/documents/FolderView';
 import { ImageGallery } from '../components/documents/ImageGallery';
