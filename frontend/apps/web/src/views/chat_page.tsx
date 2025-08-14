@@ -59,6 +59,7 @@ export function ChatPage(): JSX.Element {
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -72,17 +73,24 @@ export function ChatPage(): JSX.Element {
   // Load existing messages so chat persists across navigation
   useEffect(() => {
     let mounted = true;
-    console.log("Loading chat messages...");
+    
     getChatMessages('default', 100, 0)
       .then((data) => {
         if (!mounted) return;
-        console.log("Received chat data:", data);
         const msgs = Array.isArray(data) ? data.slice().reverse() : [];
-        console.log("Processed messages:", msgs);
         setMessages(msgs);
+        setError(null); // Clear any previous errors
       })
       .catch((error) => {
-        console.error("Error loading chat messages:", error);
+        console.error("Chat Page: Error loading chat messages:", error);
+        
+        // Show user-friendly error message
+        if (error.message.includes('HTML instead of JSON')) {
+          setError("Unable to connect to the backend server. Please check if the server is running.");
+        } else {
+          setError(`Failed to load chat messages: ${error.message}`);
+        }
+        
         setMessages([]);
       });
     return () => {
@@ -166,6 +174,45 @@ export function ChatPage(): JSX.Element {
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mx-4 mt-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Connection Error</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error}</p>
+                <p className="mt-1">Please check if your backend server is running and try again.</p>
+              </div>
+              <div className="mt-4">
+                <button
+                  onClick={() => {
+                    setError(null);
+                    // Retry loading messages
+                    getChatMessages('default', 100, 0)
+                      .then((data) => {
+                        const msgs = Array.isArray(data) ? data.slice().reverse() : [];
+                        setMessages(msgs);
+                      })
+                      .catch((retryError) => {
+                        setError(`Retry failed: ${retryError.message}`);
+                      });
+                  }}
+                  className="bg-red-100 text-red-800 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Retry Connection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
         {messages.length === 0 ? (
@@ -176,10 +223,8 @@ export function ChatPage(): JSX.Element {
           </div>
         ) : (
           messages.map((message, index) => {
-            console.log("Rendering message:", message);
             // Safety check for item field
             if (!message.item) {
-              console.warn("Message missing item field:", message);
               return null; // Skip rendering this message
             }
             

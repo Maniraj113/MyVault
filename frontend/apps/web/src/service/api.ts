@@ -1,14 +1,34 @@
-// Global variables defined by Vite build process
-declare global {
-  const __VITE_API_URL__: string;
-  const __VITE_APP_NAME__: string;
-  const __VITE_APP_VERSION__: string;
-  const __VITE_ENABLE_DEBUG__: string;
-  const __VITE_ENABLE_ANALYTICS__: string;
+// API base URL - read from runtime environment variables
+let API_BASE: string;
+
+// Function to get API base URL from runtime environment
+function getApiBaseUrl(): string {
+  // Check if we're in browser environment
+  if (typeof window !== 'undefined') {
+    // Try to get from runtime environment (Cloud Run)
+    const runtimeEnv = (window as any).__RUNTIME_ENV__;
+    if (runtimeEnv?.VITE_API_URL) {
+      return runtimeEnv.VITE_API_URL;
+    }
+  }
+  
+  // Fallback to build-time environment variables
+  return import.meta.env.VITE_API_URL;
 }
 
-// API base URL - defined by Vite build process
-const API_BASE = __VITE_API_URL__;
+API_BASE = getApiBaseUrl();
+
+// Validate environment variable is set
+if (!API_BASE) {
+  throw new Error('API configuration error: VITE_API_URL environment variable is required');
+}
+
+console.log('API Service initialized with:', {
+  API_BASE,
+  MODE: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+  PROD: import.meta.env.PROD
+});
 
 export type ListParams = { kind?: string; limit?: number; offset?: number };
 
