@@ -53,6 +53,24 @@ export async function createItem(payload: { kind: string; title: string; content
   return await res.json();
 }
 
+export async function updateItem(itemId: string, payload: { title?: string; content?: string }) {
+  const res = await fetch(`${API_BASE}/items/${itemId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to update item');
+  return await res.json();
+}
+
+export async function deleteItem(itemId: string) {
+  const res = await fetch(`${API_BASE}/items/${itemId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete item');
+  return await res.json();
+}
+
 // Chat API
 export async function sendChatMessage(payload: { message: string; conversation_id?: string }) {
   const res = await fetch(`${API_BASE}/chat/messages`, {
@@ -191,12 +209,14 @@ export async function getCalendarEvents(params: {
 }
 
 // Files API
-export async function uploadFile(file: File, title?: string, content?: string, folder = 'documents') {
+export async function uploadFile(file: File, title?: string, content?: string, folder = 'documents', category = 'other', person = 'Unknown') {
   const formData = new FormData();
   formData.append('file', file);
   if (title) formData.append('title', title);
   if (content) formData.append('content', content);
   formData.append('folder', folder);
+  formData.append('category', category);
+  formData.append('person', person);
 
   const res = await fetch(`${API_BASE}/files/upload`, {
     method: 'POST',

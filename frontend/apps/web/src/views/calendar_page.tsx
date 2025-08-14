@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, X, Eye } from 'lucide-react';
+import { getCalendarEvents } from '../service/api';
 
 interface CalendarEvent {
   id: number;
@@ -61,33 +62,32 @@ export function CalendarPage(): JSX.Element {
       const startDate = new Date(year, month, 1).toISOString().split('T')[0];
       const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
-      const response = await fetch(
-        `/api/calendar/events?start_date=${startDate}&end_date=${endDate}&event_type=${viewType}`
-      );
+      const data = await getCalendarEvents({
+        start_date: startDate,
+        end_date: endDate,
+        event_type: viewType
+      });
       
-      if (response.ok) {
-        const data = await response.json();
-        const allEvents: CalendarEvent[] = [
-          ...data.tasks.map((task: any) => ({
-            id: task.id,
-            title: task.title,
-            date: task.date,
-            time: task.time,
-            type: 'task' as const,
-            is_done: task.is_done
-          })),
-          ...data.expenses.map((expense: any) => ({
-            id: expense.id,
-            title: expense.title,
-            date: expense.date,
-            type: 'expense' as const,
-            amount: expense.amount,
-            category: expense.category,
-            is_income: expense.is_income
-          }))
-        ];
-        setEvents(allEvents);
-      }
+      const allEvents: CalendarEvent[] = [
+        ...data.tasks.map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          date: task.date,
+          time: task.time,
+          type: 'task' as const,
+          is_done: task.is_done
+        })),
+        ...data.expenses.map((expense: any) => ({
+          id: expense.id,
+          title: expense.title,
+          date: expense.date,
+          type: 'expense' as const,
+          amount: expense.amount,
+          category: expense.category,
+          is_income: expense.is_income
+        }))
+      ];
+      setEvents(allEvents);
     } catch (error) {
       console.error('Failed to load calendar events:', error);
       setEvents([]);

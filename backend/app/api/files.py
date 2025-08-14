@@ -30,7 +30,9 @@ async def upload_document(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     content: Optional[str] = Form(None), 
-    folder: str = Form("documents")
+    folder: str = Form("documents"),
+    category: Optional[str] = Form("other"),
+    person: Optional[str] = Form("Unknown")
 ) -> FileUploadOut:
     """Upload a document or image file."""
     try:
@@ -53,11 +55,16 @@ async def upload_document(
                 detail=f"File size exceeds maximum allowed size of {MAX_FILE_SIZE // (1024*1024)}MB"
             )
         
-        # Determine folder based on file type
-        if file.content_type in ALLOWED_IMAGE_TYPES:
-            folder = "images"
-        elif file.content_type in ALLOWED_DOCUMENT_TYPES:
-            folder = "documents"
+        # Use user-selected folder, but validate it's reasonable
+        # Only override if user didn't specify a folder or specified an invalid one
+        if not folder or folder not in ["Personal", "Work", "Medical", "Financial", "Education", "Travel", "Legal", "images", "documents"]:
+            # Fallback to type-based folder only if user selection is invalid
+            if file.content_type in ALLOWED_IMAGE_TYPES:
+                folder = "images"
+            elif file.content_type in ALLOWED_DOCUMENT_TYPES:
+                folder = "documents"
+            else:
+                folder = "documents"
         
         # Upload to Firebase Storage
         from io import BytesIO
@@ -100,6 +107,10 @@ async def upload_document(
                 "folder": folder,
                 "uploaded_at": now,
                 "item": item_doc,
+                # Add user metadata
+                "user_folder": folder,  # Store the user's selected folder
+                "category": category,   # User-selected category
+                "person": person,       # User-selected person
             }
             
             # Write both documents in batch

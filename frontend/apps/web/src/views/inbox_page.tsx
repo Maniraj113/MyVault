@@ -11,8 +11,7 @@ export function InboxPage(): JSX.Element {
     { to: '/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/links', label: 'Links', icon: LinkIcon },
     { to: '/notes', label: 'Notes', icon: StickyNote },
-    { to: '/docs', label: 'Docs', icon: FileImage },
-    { to: '/health', label: 'Health', icon: HeartPulse },
+    { to: '/docs', label: 'Documents', icon: FileImage },
   ]), []);
 
   return (

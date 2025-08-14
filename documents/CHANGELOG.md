@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2024-12-24
+
+### 🎉 Major Feature Release - Unified Documents & Mobile Enhancement
+
+#### Added
+- **Unified Document Management**: Combined health and general documents into single comprehensive interface
+- **Advanced Folder System**: Create custom folders for better document organization
+- **Multi-Category Support**: Health, Home, Certificates, Technical, Insurance documents with icons
+- **People Classification**: Filter documents by person (Maniraj, Thirushanthini, Sanjay, Parents, Family)
+- **Enhanced Upload System**: Categorize documents during upload with person, category, and folder metadata
+- **Dual View Modes**: Grid and list views for different user preferences and screen sizes
+
+#### Changed
+- **Document Interface**: Complete redesign of documents page with better mobile experience
+- **Filter Layout**: Consolidated all filters (Category, Person, Folder) into one line for better space usage
+- **Navigation Structure**: Removed separate health page, unified under documents route
+- **Mobile Design**: Improved spacing, touch targets, and responsive layout for mobile devices
+- **Expense Form**: Fixed form reset logic and removed default icon from category selection
+
+#### Fixed
+- **Document Upload 422 Error**: Resolved by correcting uploadFile API parameters
+- **Expense Form Persistence**: Form now properly resets when opening add entry popup
+- **Category Icon Display**: Removed awkward default icon from "Select Category" option
+- **Import Errors**: Fixed health page import issues after unification
+- **Navigation Routes**: Updated all references to point to unified docs page
+- **Mobile Layout**: Fixed awkward spacing and filter layout on mobile devices
+
+#### Removed
+- **Health Page**: Separate health page completely removed and merged into documents
+- **Redundant Routes**: Cleaned up navigation to reflect new unified structure
+- **Default Icons**: Removed unnecessary default icons from category selection
+
+#### Technical Improvements
+- **API Integration**: Fixed file upload and document creation flow
+- **State Management**: Improved form state handling and reset logic
+- **Responsive Design**: Better grid layout that adapts to different screen sizes
+- **Error Handling**: Enhanced error handling for document operations
+
+---
+
 ## [1.0.0] - 2024-12-21
 
 ### 🎉 Initial Release

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ExpenseCategory(str, Enum):
@@ -37,8 +37,18 @@ class ItemOut(BaseModel):
     kind: ItemKind
     title: str
     content: Optional[str]
-    created_at: datetime
-    updated_at: datetime
+    created_at: Union[datetime, str]
+    updated_at: Union[datetime, str]
+
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
+    def parse_datetime(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except ValueError:
+                return v
+        return v
 
     class Config:
         from_attributes = True

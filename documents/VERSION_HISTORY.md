@@ -1,5 +1,62 @@
 # MyVault Version History
 
+## Version 1.2.0 - Unified Documents & Mobile Enhancement (December 24, 2024)
+
+### 🚀 New Features
+- ✅ **Unified Document Management**: Combined health and general documents into single interface
+- ✅ **Advanced Folder System**: Create custom folders for better document organization
+- ✅ **Multi-Category Support**: Health, Home, Certificates, Technical, Insurance documents
+- ✅ **People Classification**: Filter documents by person (Maniraj, Thirushanthini, Sanjay, Parents, Family)
+- ✅ **Enhanced Upload System**: Categorize documents during upload with person, category, and folder
+- ✅ **Dual View Modes**: Grid and list views for different user preferences
+
+### 🎨 UI/UX Improvements
+- ✅ **Mobile-First Design**: Optimized mobile experience with better spacing and touch targets
+- ✅ **Consolidated Filters**: All filters (Category, Person, Folder) in one line for better space usage
+- ✅ **Professional Layout**: Clean, modern interface with proper visual hierarchy
+- ✅ **Responsive Grid**: Adaptive grid layout (2 cols mobile, up to 6 cols desktop)
+- ✅ **Better Icons**: Improved category icons with consistent color coding
+
+### 🔧 Technical Improvements
+- ✅ **Fixed Document Upload**: Resolved 422 error by correcting API parameters
+- ✅ **Form Reset Logic**: Fixed expense form not clearing old data when opening add entry
+- ✅ **Category Icons**: Removed default icon from "Select Category" option in expenses
+- ✅ **Navigation Cleanup**: Removed separate health page, unified under documents
+- ✅ **API Integration**: Fixed file upload and document creation flow
+
+### 📱 Mobile Enhancements
+- ✅ **Better Header Spacing**: Improved spacing around page headers on mobile
+- ✅ **Compact Filter Layout**: Filters now fit properly on mobile without awkward spacing
+- ✅ **Touch-Friendly Controls**: Optimized button sizes and spacing for mobile devices
+- ✅ **Responsive Grid**: Better grid layout that adapts to different screen sizes
+
+### 🗂️ Document Categories
+1. **Health Documents** ❤️ - Medical reports, prescriptions, insurance
+2. **Home Documents** 🏠 - Personal, family, household documents  
+3. **Certificates** 🏆 - Educational, professional, achievement certificates
+4. **Technical Docs** 💻 - Technical documentation, manuals, guides
+5. **Insurance** 🛡️ - Insurance policies, claims, documents
+6. **Other** 📄 - Miscellaneous documents
+
+### 🐛 Bug Fixes
+- ✅ **Document Upload 422 Error**: Fixed by correcting uploadFile API parameters
+- ✅ **Expense Form Persistence**: Form now properly resets when opening add entry popup
+- ✅ **Category Icon Display**: Removed awkward default icon from select category option
+- ✅ **Import Errors**: Fixed health page import issues after unification
+- ✅ **Navigation Routes**: Updated all references to point to unified docs page
+
+### 🔄 Breaking Changes
+- **Health Page Removed**: Health documents now accessible via `/docs` route
+- **Navigation Updated**: Home page shortcuts updated to reflect new structure
+- **API Changes**: Document upload now requires category, person, and folder parameters
+
+### 📋 Updated API Endpoints
+- **Documents API**: Enhanced with category, person, and folder support
+- **File Upload**: Improved with better error handling and validation
+- **Document Management**: Full CRUD operations with metadata support
+
+---
+
 ## Version 1.1.0 - Enhanced Release (December 23, 2024)
 
 ### 🚀 New Features
