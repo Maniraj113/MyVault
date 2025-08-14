@@ -2,13 +2,15 @@ import { PageHeader } from '../ui/page_header';
 import { useEffect, useState } from 'react';
 import { createItem, listItems, updateItem, deleteItem } from '../service/api';
 import type { Item } from '../service/types';
-import { FileText, Edit, Trash2, X, Check } from 'lucide-react';
+import { Palette, Edit, Trash2, X, Check, Plus, Search } from 'lucide-react';
 
 export function NotesPage(): JSX.Element {
   const [items, setItems] = useState<Item[]>([]);
   const [note, setNote] = useState('');
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editText, setEditText] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     listItems({ kind: 'note' }).then(setItems);
@@ -18,6 +20,7 @@ export function NotesPage(): JSX.Element {
     if (!note.trim()) return;
     await createItem({ kind: 'note', title: note });
     setNote('');
+    setIsExpanded(false);
     setItems(await listItems({ kind: 'note' }));
   }
 
@@ -46,63 +49,145 @@ export function NotesPage(): JSX.Element {
     setEditText('');
   }
 
+  const filteredNotes = items.filter(item =>
+    item.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6 pb-20 lg:pb-0 p-4">
-      <PageHeader title="Notes" icon={<FileText className="w-6 h-6" />} />
-      <div className="rounded-xl border border-slate-200 bg-white shadow-card p-3 flex gap-2">
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Write a quick note" className="flex-1 rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100" />
-        <button onClick={add} className="rounded-md bg-primary-600 text-white px-4 py-2 text-sm">Add</button>
+      <PageHeader title="Notes" icon={<Palette className="w-6 h-6 text-yellow-600" />} />
+      
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <input
+          type="text"
+          placeholder="Search notes..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
       </div>
-      {items.length === 0 ? (
-        <EmptyCard text="Capture ideas quickly and organize later." />
+
+      {/* Note Input - Google Keep Style */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="p-4">
+          {isExpanded && (
+            <input
+              placeholder="Title (optional)"
+              className="w-full text-lg font-medium text-gray-900 border-none outline-none resize-none mb-3 placeholder-gray-400"
+              disabled
+            />
+          )}
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onFocus={() => setIsExpanded(true)}
+            placeholder="Take a note..."
+            className={`w-full border-none outline-none resize-none placeholder-gray-400 transition-all duration-200 ${
+              isExpanded ? 'min-h-32 text-base' : 'min-h-12 text-sm'
+            }`}
+            rows={isExpanded ? 6 : 1}
+          />
+          
+          {isExpanded && (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-2">
+                {/* Future: Add color picker, reminder, etc. */}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setNote('');
+                    setIsExpanded(false);
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={add}
+                  disabled={!note.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Notes Grid */}
+      {filteredNotes.length === 0 ? (
+        <EmptyCard text={searchTerm ? "No notes match your search." : "Capture ideas quickly and organize later."} />
       ) : (
-        <ul className="space-y-2">
-          {items.map((x) => (
-            <li key={x.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-card">
-              {editingItem?.id === x.id ? (
-                <div className="flex items-center gap-2">
-                  <input
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredNotes.map((note) => (
+            <div
+              key={note.id}
+              className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group"
+            >
+              {editingItem?.id === note.id ? (
+                <div className="space-y-3">
+                  <textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="flex-1 rounded-md border border-slate-200 px-3 py-2 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                    onKeyDown={(e) => e.key === 'Enter' && updateNote(x)}
+                    className="w-full min-h-24 p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Edit your note..."
                   />
-                  <button onClick={() => updateNote(x)} className="p-2 text-green-600 hover:bg-green-50 rounded-md">
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button onClick={cancelEdit} className="p-2 text-gray-600 hover:bg-gray-50 rounded-md">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">{x.title}</span>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => startEdit(x)} className="p-1 text-gray-400 hover:text-blue-600 rounded">
-                      <Edit className="w-4 h-4" />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => updateNote(note)}
+                      className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      <Check className="w-4 h-4 inline mr-1" />
+                      Save
                     </button>
-                    <button onClick={() => deleteNote(x.id)} className="p-1 text-gray-400 hover:text-red-600 rounded">
-                      <Trash2 className="w-4 h-4" />
+                    <button
+                      onClick={cancelEdit}
+                      className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      <X className="w-4 h-4 inline mr-1" />
+                      Cancel
                     </button>
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-3">
+                  <div 
+                    className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words cursor-text"
+                    onClick={() => startEdit(note)}
+                  >
+                    {note.title}
+                  </div>
+                  
+                  <div className="flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="text-xs text-gray-400">
+                      {new Date(note.created_at).toLocaleDateString()}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEdit(note)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit note"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteNote(note.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete note"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
-            </li>
+            </div>
           ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function Header({ title, actionLabel }: { title: string; actionLabel?: string }): JSX.Element {
-  return (
-    <div className="flex items-center justify-between">
-      <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
-      {actionLabel && (
-        <button className="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white shadow hover:bg-primary-700">
-          {actionLabel}
-        </button>
+        </div>
       )}
     </div>
   );
@@ -110,8 +195,9 @@ function Header({ title, actionLabel }: { title: string; actionLabel?: string })
 
 function EmptyCard({ text }: { text: string }): JSX.Element {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
-      {text}
+    <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500">
+      <Palette className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+      <p>{text}</p>
     </div>
   );
 }

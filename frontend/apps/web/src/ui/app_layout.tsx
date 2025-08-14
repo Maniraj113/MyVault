@@ -103,12 +103,14 @@ function NavGroup({ items }: { items: NavItem[] }): JSX.Element {
                 cn(
                   'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors border-l-4',
                   isActive
-                    ? 'bg-blue-50 border-blue-600 text-blue-700'
+                    ? 'bg-emerald-50 border-emerald-600 text-emerald-700'
                     : 'border-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 )
               }
             >
-              {item.icon({ className: 'h-6 w-6' })}
+              <div className="flex-shrink-0">
+                {item.icon({ className: 'h-6 w-6' })}
+              </div>
               <span className="text-base">{item.label}</span>
             </NavLink>
           </li>
@@ -135,13 +137,15 @@ function MobileNav({
                 cn(
                   'flex flex-col items-center gap-1 px-3 py-2 text-xs transition-colors',
                   isActive || (location.pathname === '/' && item.to === '/chat')
-                    ? 'text-blue-600'
+                    ? 'text-emerald-600'
                     : 'text-gray-500'
                 )
               }
               aria-label={item.label}
             >
-              {item.icon({ className: 'h-6 w-6' })}
+              <div className="flex-shrink-0">
+                {item.icon({ className: 'h-6 w-6' })}
+              </div>
               <span className="text-xs font-medium">{item.label}</span>
             </NavLink>
           </li>

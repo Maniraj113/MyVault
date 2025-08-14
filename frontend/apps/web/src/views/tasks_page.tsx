@@ -1,86 +1,140 @@
 import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../ui/page_header';
-import { CheckSquare, Plus, Calendar, Clock, ChevronDown, ChevronRight, Archive, Edit, Trash2, ExternalLink, Eye } from 'lucide-react';
+import { Target, Plus, Calendar, Clock, ChevronDown, ChevronRight, Archive, Edit, Trash2, ExternalLink, Eye } from 'lucide-react';
+import { createTask, getTasks, toggleTask, updateItem, deleteItem } from '../service/api';
 
 interface Task {
-  id: number;
+  id: string;
   title: string;
+  content?: string;
   due_at?: string;
   is_done: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export function TasksPage(): JSX.Element {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', due_at: '' });
+  const [newTask, setNewTask] = useState({ title: '', due_at: '', due_time: '' });
   const [showArchive, setShowArchive] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editText, setEditText] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
+  const [editDueTime, setEditDueTime] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Load tasks from API
-    // For now, using dummy data
-    setTasks([
-      { id: 1, title: 'Renew insurance', due_at: '2024-08-15', is_done: false },
-      { id: 2, title: 'Pay rent', due_at: '2024-09-01', is_done: false },
-      { id: 3, title: 'Review budget', due_at: '', is_done: true },
-      { id: 4, title: 'Buy groceries', due_at: '2024-08-10', is_done: true },
-      { id: 5, title: 'Call dentist', due_at: '2024-08-05', is_done: true }
-    ]);
+    loadTasks();
   }, []);
 
-  const toggleTask = (id: number) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, is_done: !task.is_done } : task
-    ));
+  const loadTasks = async () => {
+    setIsLoading(true);
+    try {
+      const tasksData = await getTasks({ limit: 100 });
+      setTasks(tasksData);
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      setTasks([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const addTask = () => {
+  const toggleTaskStatus = async (task: Task) => {
+    try {
+      await toggleTask(task.id);
+      await loadTasks(); // Reload to get updated data
+    } catch (error) {
+      console.error('Failed to toggle task:', error);
+    }
+  };
+
+  const addTask = async () => {
     if (!newTask.title.trim()) return;
     
-    const task: Task = {
-      id: Date.now(),
-      title: newTask.title,
-      due_at: newTask.due_at || undefined,
-      is_done: false
-    };
-    
-    setTasks([...tasks, task]);
-    setNewTask({ title: '', due_at: '' });
-    setShowForm(false);
+    try {
+      let dueDateTime = '';
+      if (newTask.due_at && newTask.due_time) {
+        const date = new Date(newTask.due_at + 'T' + newTask.due_time);
+        dueDateTime = date.toISOString();
+      } else if (newTask.due_at) {
+        dueDateTime = new Date(newTask.due_at + 'T00:00:00').toISOString();
+      }
+
+      await createTask({
+        title: newTask.title,
+        due_at: dueDateTime || undefined
+      });
+      
+      setNewTask({ title: '', due_at: '', due_time: '' });
+      setShowForm(false);
+      await loadTasks();
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      alert('Failed to create task. Please try again.');
+    }
   };
 
-  const deleteTask = (id: number) => {
+  const deleteTask = async (id: string) => {
     if (confirm('Are you sure you want to delete this task?')) {
-      setTasks(tasks.filter(task => task.id !== id));
+      try {
+        await deleteItem(id);
+        await loadTasks();
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+        alert('Failed to delete task. Please try again.');
+      }
     }
   };
 
   const startEdit = (task: Task) => {
     setEditingTask(task);
     setEditText(task.title);
-    setEditDueDate(task.due_at || '');
+    
+    if (task.due_at) {
+      const dueDate = new Date(task.due_at);
+      setEditDueDate(dueDate.toISOString().split('T')[0]);
+      setEditDueTime(dueDate.toTimeString().slice(0, 5));
+    } else {
+      setEditDueDate('');
+      setEditDueTime('');
+    }
   };
 
-  const saveEdit = () => {
-    if (!editText.trim()) return;
+  const saveEdit = async () => {
+    if (!editText.trim() || !editingTask) return;
     
-    setTasks(tasks.map(task => 
-      task.id === editingTask!.id 
-        ? { ...task, title: editText, due_at: editDueDate || undefined }
-        : task
-    ));
-    
-    setEditingTask(null);
-    setEditText('');
-    setEditDueDate('');
+    try {
+      let dueDateTime = '';
+      if (editDueDate && editDueTime) {
+        const date = new Date(editDueDate + 'T' + editDueTime);
+        dueDateTime = date.toISOString();
+      } else if (editDueDate) {
+        dueDateTime = new Date(editDueDate + 'T00:00:00').toISOString();
+      }
+
+      await updateItem(editingTask.id, { 
+        title: editText,
+        content: dueDateTime ? `Due: ${dueDateTime}` : undefined
+      });
+      
+      setEditingTask(null);
+      setEditText('');
+      setEditDueDate('');
+      setEditDueTime('');
+      await loadTasks();
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      alert('Failed to update task. Please try again.');
+    }
   };
 
   const cancelEdit = () => {
     setEditingTask(null);
     setEditText('');
     setEditDueDate('');
+    setEditDueTime('');
   };
 
   const addToGoogleCalendar = (task: Task) => {
@@ -100,15 +154,22 @@ export function TasksPage(): JSX.Element {
   const activeTasks = tasks.filter(task => !task.is_done);
   const completedTasks = tasks.filter(task => task.is_done);
 
+  const formatDueDateTime = (dueAt: string) => {
+    const date = new Date(dueAt);
+    const dateStr = date.toLocaleDateString();
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} at ${timeStr}`;
+  };
+
   return (
     <div className="h-full flex flex-col p-4 space-y-6">
       <PageHeader 
         title="Tasks" 
-        icon={<CheckSquare className="w-8 h-8 text-amber-600" />}
+        icon={<Target className="w-8 h-8 text-orange-600" />}
         action={
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Task
@@ -120,25 +181,29 @@ export function TasksPage(): JSX.Element {
       <div className="flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="p-4">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Tasks</h3>
-          <div className="space-y-3">
-            {activeTasks.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                <CheckSquare className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                <p>No active tasks</p>
-                <p className="text-sm">All caught up!</p>
-              </div>
-            ) : (
-              activeTasks.map((task) => (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+            </div>
+          ) : activeTasks.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              <Target className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p>No active tasks</p>
+              <p className="text-sm">All caught up!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activeTasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-3 flex-1">
                     <button
-                      onClick={() => toggleTask(task.id)}
-                      className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors border-gray-300 hover:border-amber-500 flex-shrink-0"
+                      onClick={() => toggleTaskStatus(task)}
+                      className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors border-gray-300 hover:border-orange-500 flex-shrink-0"
                     >
-                      <CheckSquare className="w-3 h-3 text-transparent" />
+                      <Target className="w-3 h-3 text-transparent" />
                     </button>
                     <div className="flex-1 min-w-0">
                       {editingTask?.id === task.id ? (
@@ -146,15 +211,23 @@ export function TasksPage(): JSX.Element {
                           <input
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                             onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
                           />
-                          <input
-                            type="date"
-                            value={editDueDate}
-                            onChange={(e) => setEditDueDate(e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="date"
+                              value={editDueDate}
+                              onChange={(e) => setEditDueDate(e.target.value)}
+                              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                            <input
+                              type="time"
+                              value={editDueTime}
+                              onChange={(e) => setEditDueTime(e.target.value)}
+                              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            />
+                          </div>
                           <div className="flex gap-1">
                             <button onClick={saveEdit} className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">
                               Save
@@ -172,7 +245,7 @@ export function TasksPage(): JSX.Element {
                           {task.due_at && (
                             <div className="flex items-center gap-1 text-xs text-gray-500">
                               <Calendar className="w-3 h-3" />
-                              Due {new Date(task.due_at).toLocaleDateString()}
+                              Due {formatDueDateTime(task.due_at)}
                             </div>
                           )}
                         </>
@@ -206,9 +279,9 @@ export function TasksPage(): JSX.Element {
                     </div>
                   )}
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -240,10 +313,10 @@ export function TasksPage(): JSX.Element {
                   >
                     <div className="flex items-center gap-3 flex-1">
                       <button
-                        onClick={() => toggleTask(task.id)}
+                        onClick={() => toggleTaskStatus(task)}
                         className="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors bg-green-500 border-green-500 text-white flex-shrink-0"
                       >
-                        <CheckSquare className="w-3 h-3" />
+                        <Target className="w-3 h-3" />
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-gray-500 line-through">
@@ -252,7 +325,7 @@ export function TasksPage(): JSX.Element {
                         {task.due_at && (
                           <div className="flex items-center gap-1 text-xs text-gray-400">
                             <Calendar className="w-3 h-3" />
-                            Completed on {new Date(task.due_at).toLocaleDateString()}
+                            Completed on {formatDueDateTime(task.due_at)}
                           </div>
                         )}
                       </div>
@@ -291,7 +364,7 @@ export function TasksPage(): JSX.Element {
                   value={newTask.title}
                   onChange={(e) => setNewTask({...newTask, title: e.target.value})}
                   placeholder="Enter task title"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                   required
                 />
               </div>
@@ -304,8 +377,21 @@ export function TasksPage(): JSX.Element {
                   type="date"
                   value={newTask.due_at}
                   onChange={(e) => setNewTask({...newTask, due_at: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Due Time (Optional)
+                </label>
+                <input
+                  type="time"
+                  value={newTask.due_time}
+                  onChange={(e) => setNewTask({...newTask, due_time: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Time will be saved in 24-hour format but displayed in 12-hour format</p>
               </div>
             </div>
 
@@ -319,7 +405,7 @@ export function TasksPage(): JSX.Element {
               </button>
               <button
                 onClick={addTask}
-                className="flex-1 py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-md transition-colors"
+                className="flex-1 py-2 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors"
               >
                 Add Task
               </button>

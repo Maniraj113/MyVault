@@ -53,6 +53,51 @@ const shouldShowDateHeader = (currentMessage: ChatMessage, previousMessage?: Cha
   return currentDate.toDateString() !== previousDate.toDateString();
 };
 
+// Helper function to format message text with proper line breaks and styling
+const formatMessageText = (text: string): JSX.Element => {
+  // Split by double line breaks for paragraphs
+  const paragraphs = text.split('\n\n');
+  
+  return (
+    <div className="space-y-2">
+      {paragraphs.map((paragraph, index) => {
+        // Split by single line breaks for line breaks within paragraphs
+        const lines = paragraph.split('\n');
+        
+        return (
+          <div key={index} className="space-y-1">
+            {lines.map((line, lineIndex) => {
+              // Handle bold text (text between **)
+              const boldParts = line.split(/(\*\*.*?\*\*)/g);
+              
+              return (
+                <div key={lineIndex}>
+                  {boldParts.map((part, partIndex) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                      // Bold text
+                      return (
+                        <strong key={partIndex} className="font-semibold">
+                          {part.slice(2, -2)}
+                        </strong>
+                      );
+                    } else if (part.trim()) {
+                      // Regular text
+                      return <span key={partIndex}>{part}</span>;
+                    } else {
+                      // Empty line (preserve spacing)
+                      return <br key={partIndex} />;
+                    }
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 type ChatType = 'general' | 'running';
 
 export function ChatPage(): JSX.Element {
@@ -135,25 +180,7 @@ export function ChatPage(): JSX.Element {
       setMessages(prev => [...prev, newMsg]);
       setNewMessage('');
       
-      // Simulate AI response for demo purposes
-      setTimeout(() => {
-        const aiResponse: ChatMessage = {
-          id: `ai-${Date.now()}`,
-          item_id: `ai-${Date.now()}`,
-          message: `I received your ${chatType === 'running' ? 'running-related ' : ''}message: "${newMessage}". This is a demo response.`,
-          is_user: false,
-          conversation_id: conversationId,
-          item: {
-            id: `ai-${Date.now()}`,
-            kind: 'chat',
-            title: `AI Response to: ${newMessage}`,
-            content: `I received your ${chatType === 'running' ? 'running-related ' : ''}message: "${newMessage}". This is a demo response.`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-        };
-        setMessages(prev => [...prev, aiResponse]);
-      }, 1000);
+      // No demo responses - this is one-way communication only
       
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -211,7 +238,7 @@ export function ChatPage(): JSX.Element {
             onClick={() => setChatType('general')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
               chatType === 'general'
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
             }`}
           >
@@ -222,8 +249,8 @@ export function ChatPage(): JSX.Element {
             onClick={() => setChatType('running')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
               chatType === 'running'
-                ? 'text-green-600 border-b-2 border-green-600 bg-green-50'
-                : 'text-gray-500 hover:text-green-700 hover:bg-green-50'
+                ? 'text-teal-600 border-b-2 border-teal-600 bg-teal-50'
+                : 'text-gray-500 hover:text-teal-700 hover:bg-teal-50'
             }`}
           >
             <Zap className="w-4 h-4" />
@@ -235,7 +262,7 @@ export function ChatPage(): JSX.Element {
       {/* Chat Header */}
       <div className="bg-white px-4 py-3 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <MessageCircle className="w-6 h-6 text-blue-600" />
+          <MessageCircle className="w-6 h-6 text-emerald-600" />
           <div>
             <h1 className="text-lg font-semibold text-gray-900">
               {chatType === 'running' ? 'Running Chat' : 'General Chat'}
@@ -282,7 +309,7 @@ export function ChatPage(): JSX.Element {
               <div className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                   message.is_user 
-                    ? 'bg-blue-600 text-white' 
+                    ? 'bg-emerald-600 text-white' 
                     : 'bg-white text-gray-900 border border-gray-200'
                 }`}>
                   {editingId === message.id ? (
@@ -290,8 +317,9 @@ export function ChatPage(): JSX.Element {
                       <textarea
                         value={editingText}
                         onChange={(e) => setEditingText(e.target.value)}
-                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 resize-none"
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         rows={3}
+                        placeholder="Type your message with line breaks (use Enter for new lines)"
                       />
                       <div className="flex gap-1">
                         <button
@@ -313,7 +341,7 @@ export function ChatPage(): JSX.Element {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-sm">{message.message}</p>
+                      <div className="text-sm">{formatMessageText(message.message)}</div>
                       {message.is_user && (
                         <div className="flex gap-1 justify-end">
                           <button
@@ -321,13 +349,13 @@ export function ChatPage(): JSX.Element {
                               setEditingId(message.id);
                               setEditingText(message.message);
                             }}
-                            className="p-1 text-blue-200 hover:text-white rounded"
+                            className="p-1 text-emerald-200 hover:text-white rounded"
                           >
                             <Edit3 className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => handleDeleteMessage(message.id)}
-                            className="p-1 text-blue-200 hover:text-white rounded"
+                            className="p-1 text-emerald-200 hover:text-white rounded"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
@@ -347,19 +375,33 @@ export function ChatPage(): JSX.Element {
       {/* Message Input */}
       <div className="bg-white border-t border-gray-200 p-4">
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-            placeholder={`Type your ${chatType === 'running' ? 'running-related ' : ''}message...`}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          />
+          <div className="flex-1 relative">
+            <textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder={`Type your ${chatType === 'running' ? 'running-related ' : ''}message...`}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none min-h-[44px] max-h-32"
+              rows={1}
+              style={{ 
+                minHeight: '44px',
+                maxHeight: '128px',
+                height: 'auto'
+              }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = Math.min(target.scrollHeight, 128) + 'px';
+              }}
+            />
+            <div className="absolute bottom-2 right-2 text-xs text-gray-400 pointer-events-none">
+              Shift+Enter for new line
+            </div>
+          </div>
           <button
             onClick={handleSendMessage}
             disabled={isLoading || !newMessage.trim()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>

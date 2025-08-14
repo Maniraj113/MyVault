@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FileImage, Upload, FolderPlus, X, Grid, Folder, RefreshCw } from 'lucide-react';
+import { Database, Upload, FolderPlus, X, Grid, Folder, RefreshCw } from 'lucide-react';
 import { uploadFile, updateItem, deleteItem, getFiles } from '../service/api';
 import { DocumentCard } from '../components/documents/DocumentCard';
 import { FolderView } from '../components/documents/FolderView';
@@ -202,9 +202,9 @@ export function DocsPage(): JSX.Element {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileImage className="w-8 h-8 text-blue-600" />
+          <Database className="w-8 h-8 text-purple-600" />
           <h1 className="text-xl font-bold text-gray-900">Documents</h1>
-          {isLoading && <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>}
+          {isLoading && <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>}
         </div>
         
         <div className="flex gap-2">
@@ -258,7 +258,7 @@ export function DocsPage(): JSX.Element {
           <button onClick={() => setCurrentFolder(null)} className="p-2 hover:bg-gray-200 rounded-lg">
             ←
           </button>
-          <Folder className="w-5 h-5 text-blue-600" />
+          <Folder className="w-5 h-5 text-purple-600" />
           <h2 className="text-lg font-semibold">{currentFolder}</h2>
         </div>
       )}
@@ -266,7 +266,7 @@ export function DocsPage(): JSX.Element {
       {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
         </div>
       ) : viewMode === 'folders' && !currentFolder ? (
         <FolderView 
