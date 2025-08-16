@@ -31,12 +31,21 @@ class Settings(BaseModel):
             # Fallback to default origins based on environment
             if self.environment == "production":
                 self.cors_origins = [
-                    "https://myvault-frontend-219371541860.asia-south1.run.app"
+                    "https://myvault-frontend-219371541860.asia-south1.run.app",
+                    "https://myvault-frontend-219371541860.asia-south1.run.app/",
+                    "https://myvault-frontend-219371541860.asia-south1.run.app/*",
+                    "https://myvault-backend-219371541860.asia-south1.run.app",
+                    "https://myvault-backend-219371541860.asia-south1.run.app/",
+                    "https://myvault-backend-219371541860.asia-south1.run.app/*"
                 ]
             else:
                 self.cors_origins = [
                     "http://localhost:5173",
-                    "http://localhost:3000"
+                    "http://localhost:3000",
+                    "http://localhost:8000",
+                    "http://127.0.0.1:5173",
+                    "http://127.0.0.1:3000",
+                    "http://127.0.0.1:8000"
                 ]
 
 

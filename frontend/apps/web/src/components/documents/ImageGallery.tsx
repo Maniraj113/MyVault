@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Download, Trash2 } from 'lucide-react';
 import { DocumentItem } from './types';
 
@@ -11,9 +11,46 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ documents, initialIndex = 0, onClose, onDelete }: ImageGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
   
   // Filter only image documents
   const imageDocs = documents.filter(doc => doc.fileType === 'image' && doc.fileUrl);
+  
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
+  
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
+  
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+  
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+  
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && hasNext) {
+      goToNext();
+    }
+    if (isRightSwipe && hasPrev) {
+      goToPrev();
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
   
   if (imageDocs.length === 0) {
     return (
@@ -88,13 +125,27 @@ export function ImageGallery({ documents, initialIndex = 0, onClose, onDelete }:
         </button>
       )}
 
-      {/* Main Image */}
-      <div className="relative max-w-full max-h-full">
+      {/* Main Image with Touch Support */}
+      <div 
+        ref={imageRef}
+        className="relative max-w-full max-h-full"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
         <img
           src={currentDoc.fileUrl}
           alt={currentDoc.title}
-          className="max-w-full max-h-[80vh] object-contain"
+          className="max-w-full max-h-[80vh] object-contain select-none"
+          draggable={false}
         />
+        
+        {/* Swipe Instructions for Mobile */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="bg-black bg-opacity-30 text-white px-3 py-1 rounded-full text-xs opacity-0 animate-pulse">
+            {hasPrev && hasNext ? 'Swipe left/right' : hasNext ? 'Swipe left' : hasPrev ? 'Swipe right' : ''}
+          </div>
+        </div>
         
         {/* Image Info Overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4">

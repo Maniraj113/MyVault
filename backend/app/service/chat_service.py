@@ -52,6 +52,56 @@ def create_chat_message(db: Client, payload: ChatMessageCreate) -> dict:
     return result
 
 
+def get_chat_message_by_id(db: Client, message_id: str) -> Optional[dict]:
+    """Get a single chat message by ID."""
+    try:
+        msg_ref = db.collection("chat_messages").document(message_id)
+        msg_snap = msg_ref.get()
+        if not msg_snap.exists:
+            return None
+        
+        msg_data = msg_snap.to_dict()
+        
+        # Hydrate with item data
+        item_id = msg_data.get("item_id")
+        if item_id:
+            item_snap = db.collection("items").document(item_id).get()
+            if item_snap.exists:
+                item_data = item_snap.to_dict()
+                msg_data["item"] = item_data
+            else:
+                # Create fallback item
+                msg_data["item"] = {
+                    "id": item_id,
+                    "kind": "chat",
+                    "title": "Chat message",
+                    "content": msg_data.get("message", ""),
+                    "created_at": msg_data.get("created_at"),
+                    "updated_at": msg_data.get("updated_at")
+                }
+        else:
+            # Create fallback item
+            msg_data["item"] = {
+                "id": msg_data.get("id"),
+                "kind": "chat",
+                "title": "Chat message",
+                "content": msg_data.get("message", ""),
+                "created_at": msg_data.get("created_at"),
+                "updated_at": msg_data.get("updated_at")
+            }
+        
+        # Ensure optional fields are present (even if None)
+        if "delivered_at" not in msg_data:
+            msg_data["delivered_at"] = None
+        if "read_at" not in msg_data:
+            msg_data["read_at"] = None
+            
+        return msg_data
+    except Exception as e:
+        logger.error(f"Failed to get chat message {message_id}: {str(e)}", exc_info=True)
+        return None
+
+
 def get_chat_messages(db: Client, conversation_id: Optional[str] = None, limit: int = 50, offset: int = 0) -> list[dict]:
     logger.info(f"Getting chat messages: conversation_id={conversation_id}, limit={limit}, offset={offset}")
     
@@ -115,6 +165,14 @@ def get_chat_messages(db: Client, conversation_id: Optional[str] = None, limit: 
                 }
         
         logger.info(f"Returning {len(messages)} messages with items")
+        
+        # Ensure all messages have the required optional fields
+        for msg in messages:
+            if "delivered_at" not in msg:
+                msg["delivered_at"] = None
+            if "read_at" not in msg:
+                msg["read_at"] = None
+        
         return messages
         
     except Exception as e:
@@ -182,7 +240,56 @@ def update_chat_message(db: Client, message_id: str, payload: ChatMessageCreate)
         "updated_at": datetime.now(timezone.utc),
     }
     ref.set(updates, merge=True)
-    return ref.get().to_dict()
+    
+    # Get the updated message
+    updated_msg = ref.get().to_dict()
+    
+    # Also update the associated item
+    item_id = updated_msg.get("item_id")
+    if item_id:
+        item_ref = db.collection("items").document(item_id)
+        item_updates = {
+            "title": f"Chat message: {payload.message[:50]}...",
+            "content": payload.message,
+            "updated_at": datetime.now(timezone.utc),
+        }
+        item_ref.set(item_updates, merge=True)
+        
+        # Get the updated item
+        updated_item = item_ref.get().to_dict()
+        
+        # Return complete message with embedded item and ensure all required fields
+        result = updated_msg.copy()
+        result["item"] = updated_item
+        
+        # Ensure optional fields are present (even if None)
+        if "delivered_at" not in result:
+            result["delivered_at"] = None
+        if "read_at" not in result:
+            result["read_at"] = None
+            
+        return result
+    
+    # Fallback if no item_id - create a complete item object
+    fallback_item = {
+        "id": updated_msg.get("id"),
+        "kind": "chat",
+        "title": f"Chat message: {payload.message[:50]}...",
+        "content": payload.message,
+        "created_at": updated_msg.get("created_at"),
+        "updated_at": updated_msg.get("updated_at")
+    }
+    
+    result = updated_msg.copy()
+    result["item"] = fallback_item
+    
+    # Ensure optional fields are present (even if None)
+    if "delivered_at" not in result:
+        result["delivered_at"] = None
+    if "read_at" not in result:
+        result["read_at"] = None
+        
+    return result
 
 
 def delete_chat_message(db: Client, message_id: str) -> bool:

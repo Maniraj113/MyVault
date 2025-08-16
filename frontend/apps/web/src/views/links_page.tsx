@@ -13,6 +13,9 @@ export function LinksPage(): JSX.Element {
   const [editNotes, setEditNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     listItems({ kind: 'link' }).then(setItems);
@@ -41,9 +44,14 @@ export function LinksPage(): JSX.Element {
   }
 
   async function deleteLink(itemId: string): Promise<void> {
-    if (confirm('Are you sure you want to delete this link?')) {
+    try {
       await deleteItem(itemId);
+      setSuccess('Link deleted successfully!');
+      setDeleteConfirmId(null);
       setItems(await listItems({ kind: 'link' }));
+    } catch (error) {
+      console.error('Failed to delete link:', error);
+      setError('Failed to delete link. Please try again.');
     }
   }
 
@@ -94,6 +102,37 @@ export function LinksPage(): JSX.Element {
 
   return (
     <div className="space-y-6 pb-20 lg:pb-0 p-4">
+      {/* Error and Success Messages */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span className="font-medium">{error}</span>
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-800">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="font-medium">{success}</span>
+            <button 
+              onClick={() => setSuccess(null)} 
+              className="ml-auto text-green-600 hover:text-green-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <PageHeader title="Links" icon={<Globe className="w-6 h-6 text-indigo-600" />} />
       
       {/* Search Bar */}
@@ -236,7 +275,7 @@ export function LinksPage(): JSX.Element {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteLink(item.id)}
+                          onClick={() => setDeleteConfirmId(item.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete link"
                         >
@@ -244,6 +283,29 @@ export function LinksPage(): JSX.Element {
                         </button>
                       </div>
                     </div>
+                    
+                    {/* Delete Confirmation */}
+                    {deleteConfirmId === item.id && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-sm text-red-800 mb-2">
+                          Are you sure you want to delete this link?
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => deleteLink(item.id)}
+                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

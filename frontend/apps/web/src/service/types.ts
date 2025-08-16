@@ -7,6 +7,18 @@ export type Item = {
   updated_at: string | Date;
 };
 
+export type Task = {
+  id: string;
+  item_id: string;
+  title: string;
+  content?: string | null;
+  due_at?: string | Date;
+  is_done: boolean;
+  created_at: string | Date;
+  updated_at: string | Date;
+  item: Item;
+};
+
 export type FileUpload = {
   id: string;
   item_id: string;

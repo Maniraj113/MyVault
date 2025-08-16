@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageCircle, Edit3, Trash2, Check, X, Zap, MessageSquare } from 'lucide-react';
-import { getChatMessages, sendChatMessage } from '../service/api';
+import { getChatMessages, sendChatMessage, updateChatMessage, deleteChatMessage } from '../service/api';
 
 interface ChatMessage {
   id: string;
@@ -16,22 +16,6 @@ interface ChatMessage {
     created_at: string;
     updated_at: string;
   };
-}
-
-async function updateMessage(messageId: string, message: string) {
-  const res = await fetch(`/api/chat/messages/${messageId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, conversation_id: 'default' }),
-  });
-  if (!res.ok) throw new Error('Failed to update message');
-  return await res.json();
-}
-
-async function deleteMessage(messageId: string) {
-  const res = await fetch(`/api/chat/messages/${messageId}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete message');
-  return true;
 }
 
 // Helper function to format date for display
@@ -108,6 +92,7 @@ export function ChatPage(): JSX.Element {
   const [editingText, setEditingText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [chatType, setChatType] = useState<ChatType>('general');
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -194,7 +179,7 @@ export function ChatPage(): JSX.Element {
     if (!editingText.trim()) return;
     
     try {
-      await updateMessage(messageId, editingText);
+      await updateChatMessage(messageId, editingText);
       setMessages(prev => 
         prev.map(msg => 
           msg.id === messageId 
@@ -211,11 +196,10 @@ export function ChatPage(): JSX.Element {
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    if (!confirm('Are you sure you want to delete this message?')) return;
-    
     try {
-      await deleteMessage(messageId);
+      await deleteChatMessage(messageId);
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      setDeleteConfirmId(null);
     } catch (error) {
       console.error('Failed to delete message:', error);
       setError('Failed to delete message. Please try again.');
@@ -354,11 +338,34 @@ export function ChatPage(): JSX.Element {
                             <Edit3 className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={() => handleDeleteMessage(message.id)}
+                            onClick={() => setDeleteConfirmId(message.id)}
                             className="p-1 text-emerald-200 hover:text-white rounded"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
+                        </div>
+                      )}
+                      
+                      {/* Delete Confirmation */}
+                      {deleteConfirmId === message.id && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                          <div className="text-red-800 mb-2">
+                            Delete this message?
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleDeleteMessage(message.id)}
+                              className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -395,7 +402,7 @@ export function ChatPage(): JSX.Element {
               }}
             />
             <div className="absolute bottom-2 right-2 text-xs text-gray-400 pointer-events-none">
-              Shift+Enter for new line
+              {/* Shift+Enter for new line text removed */}
             </div>
           </div>
           <button

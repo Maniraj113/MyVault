@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Database, Upload, FolderPlus, X, Grid, Folder, RefreshCw } from 'lucide-react';
 import { uploadFile, updateItem, deleteItem, getFiles } from '../service/api';
 import { DocumentCard } from '../components/documents/DocumentCard';
-import { FolderView } from '../components/documents/FolderView';
 import { ImageGallery } from '../components/documents/ImageGallery';
 import { DocumentItem, DocumentCategory, DOCUMENT_CATEGORIES, PEOPLE, DEFAULT_FOLDERS } from '../components/documents/types';
 
@@ -19,28 +18,26 @@ export function DocsPage(): JSX.Element {
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
   const [cacheValid, setCacheValid] = useState<boolean>(false);
+  const [imageCache, setImageCache] = useState<Map<string, string>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadDocuments();
-  }, []);
-
-  const loadDocuments = async (forceRefresh = false) => {
-    // Cache for 5 minutes (300,000 ms)
-    const CACHE_DURATION = 5 * 60 * 1000;
+  const loadDocuments = useCallback(async (forceRefresh = false) => {
+    // Cache for 10 minutes (600,000 ms) - increased for better performance
+    const CACHE_DURATION = 10 * 60 * 1000;
     const now = Date.now();
     
     // Use cache if it's still valid and not forcing refresh
     if (!forceRefresh && cacheValid && (now - lastLoadTime) < CACHE_DURATION && documents.length > 0) {
-      console.log('Using cached documents');
       return;
     }
     
     setIsLoading(true);
     try {
-      console.log('Loading documents from server');
       // Use the files API instead of items API to get actual file information
       const files = await getFiles({ limit: 100 });
-      console.log('Raw files from API:', files);
       if (!Array.isArray(files) || files.length === 0) {
         setDocuments([]);
         setLastLoadTime(now);
@@ -62,7 +59,6 @@ export function DocsPage(): JSX.Element {
           created_at: file.uploaded_at || new Date().toISOString(),
           updated_at: file.uploaded_at || new Date().toISOString(),
         };
-        console.log('Processed document:', doc);
         return doc;
       });
       
@@ -76,17 +72,28 @@ export function DocsPage(): JSX.Element {
       setLastLoadTime(now);
       setCacheValid(true);
       
-      console.log('Processed documents:', processedDocs);
+      // Pre-cache image URLs for better performance
+      const newImageCache = new Map();
+      processedDocs.forEach(doc => {
+        if (doc.fileType === 'image' && doc.fileUrl) {
+          newImageCache.set(doc.id, doc.fileUrl);
+        }
+      });
+      setImageCache(newImageCache);
       
     } catch (error) {
       console.error('Failed to load documents:', error);
-      alert('Failed to load documents. Please try again.');
+      setError('Failed to load documents. Please try again.');
       setDocuments([]);
       setCacheValid(false);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [cacheValid, lastLoadTime, documents.length]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
   const getFileTypeFromMime = (mimeType: string): string => {
     if (mimeType?.startsWith('image/')) return 'image';
@@ -101,9 +108,7 @@ export function DocsPage(): JSX.Element {
     try {
       for (const file of Array.from(files)) {
         try {
-          console.log('Uploading file:', file.name, 'type:', file.type, 'size:', file.size, 'to folder:', folder, 'category:', category, 'person:', person);
           const uploadResult = await uploadFile(file, file.name, '', folder, category, person);
-          console.log('Upload result:', uploadResult);
           
           // The uploadFile function already creates the file record, so we don't need to create an item
           // Just refresh the documents list
@@ -116,11 +121,11 @@ export function DocsPage(): JSX.Element {
       setCacheValid(false);
       await loadDocuments(true);
       setShowUploadModal(false);
-      alert('Files uploaded successfully!');
+      setSuccess('Files uploaded successfully!');
       
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Upload failed. Please try again.');
+      setError('Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -133,8 +138,6 @@ export function DocsPage(): JSX.Element {
   };
 
   const handleDeleteFolder = async (folderName: string) => {
-    if (!confirm(`Delete folder "${folderName}"? Documents will move to "Personal".`)) return;
-    
     try {
       const docsInFolder = documents.filter(doc => doc.folder === folderName);
       for (const doc of docsInFolder) {
@@ -151,19 +154,22 @@ export function DocsPage(): JSX.Element {
       }
       setFolders(prev => prev.filter(f => f !== folderName));
       setCacheValid(false);
+      setSuccess(`Folder "${folderName}" deleted successfully!`);
+      setDeleteFolderConfirm(null);
       loadDocuments(true);
     } catch (error) {
       console.error('Failed to delete folder:', error);
-      alert('Failed to delete folder.');
+      setError('Failed to delete folder. Please try again.');
     }
   };
 
   const handleDeleteDocument = async (doc: DocumentItem) => {
-    if (!confirm(`Delete "${doc.title}"?`)) return;
     try {
       // Delete the item from items collection
       await deleteItem(doc.id);
       setCacheValid(false);
+      setSuccess(`Document "${doc.title}" deleted successfully!`);
+      setDeleteConfirmId(null);
       loadDocuments(true);
       if (selectedDoc?.id === doc.id) {
         setSelectedDoc(null);
@@ -171,25 +177,19 @@ export function DocsPage(): JSX.Element {
       }
     } catch (error) {
       console.error('Failed to delete document:', error);
-      alert('Failed to delete document.');
+      setError('Failed to delete document. Please try again.');
     }
   };
 
   const handleViewDocument = (doc: DocumentItem) => {
-    console.log('Viewing document:', doc);
-    console.log('File type:', doc.fileType);
-    console.log('File URL:', doc.fileUrl);
-    
     if (doc.fileType === 'image' && doc.fileUrl) {
-      console.log('Opening image in gallery');
       setSelectedDoc(doc);
       setShowGallery(true);
     } else if (doc.fileUrl) {
-      console.log('Opening file in new tab:', doc.fileUrl);
       window.open(doc.fileUrl, '_blank');
     } else {
       console.error('No file URL available for document:', doc);
-      alert('File URL not available');
+      setError('File URL not available for this document');
     }
   };
 
@@ -199,6 +199,37 @@ export function DocsPage(): JSX.Element {
 
   return (
     <div className="h-full flex flex-col p-4 space-y-6">
+      {/* Error and Success Messages */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span className="font-medium">{error}</span>
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-800">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="font-medium">{success}</span>
+            <button 
+              onClick={() => setSuccess(null)} 
+              className="ml-auto text-green-600 hover:text-green-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -269,15 +300,51 @@ export function DocsPage(): JSX.Element {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
         </div>
       ) : viewMode === 'folders' && !currentFolder ? (
-        <FolderView 
-          folders={folders}
-          documents={documents}
-          onNavigateToFolder={setCurrentFolder}
-          onDeleteFolder={handleDeleteFolder}
-          onViewDocument={handleViewDocument}
-        />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-8">
+          {folders.map((folder) => {
+            const docsInFolder = documents.filter(doc => doc.folder === folder);
+            const docCount = docsInFolder.length;
+            const hasImages = docsInFolder.some(doc => doc.fileType === 'image');
+            const hasDocuments = docsInFolder.some(doc => doc.fileType !== 'image');
+            
+            return (
+              <div
+                key={folder}
+                className="group relative bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden"
+                onClick={() => setCurrentFolder(folder)}
+              >
+                {/* Modern folder design */}
+                <div className="relative mb-3">
+                  <div className="w-12 h-12 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Folder className="w-6 h-6 text-white" />
+                  </div>
+                  {hasImages && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="text-center">
+                  <h3 className="font-semibold text-gray-900 text-sm mb-1 truncate">{folder}</h3>
+                  <p className="text-xs text-gray-500 mb-3">{docCount} document{docCount !== 1 ? 's' : ''}</p>
+                  
+                  {/* Modern action button */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm">
+                      Browse
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Hover effect overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl"></div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-6">
           {currentDocuments.map((doc) => (
             <DocumentCard 
               key={doc.id}

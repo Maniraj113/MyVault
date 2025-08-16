@@ -13,7 +13,15 @@ function getApiBaseUrl(): string {
   }
   
   // Fallback to build-time environment variables
-  return import.meta.env.VITE_API_URL;
+  const envUrl = import.meta.env.VITE_API_URL;
+  
+  // In development, if using proxy, use relative path
+  if (import.meta.env.DEV && envUrl === '/api') {
+    return '/api';
+  }
+  
+  // In production or when using direct URL
+  return envUrl;
 }
 
 API_BASE = getApiBaseUrl();
@@ -93,6 +101,30 @@ export async function getChatMessages(conversation_id?: string, limit = 50, offs
   return await res.json();
 }
 
+export async function getChatMessage(messageId: string) {
+  const res = await fetch(`${API_BASE}/chat/messages/${messageId}`);
+  if (!res.ok) throw new Error('Failed to load message');
+  return await res.json();
+}
+
+export async function updateChatMessage(messageId: string, message: string) {
+  const res = await fetch(`${API_BASE}/chat/messages/${messageId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, conversation_id: 'default' }),
+  });
+  if (!res.ok) throw new Error('Failed to update message');
+  return await res.json();
+}
+
+export async function deleteChatMessage(messageId: string) {
+  const res = await fetch(`${API_BASE}/chat/messages/${messageId}`, { 
+    method: 'DELETE' 
+  });
+  if (!res.ok) throw new Error('Failed to delete message');
+  return true;
+}
+
 // Expenses API
 export async function createExpense(payload: { 
   title: string; 
@@ -152,6 +184,14 @@ export async function getExpenseCategories() {
   return await res.json();
 }
 
+export async function deleteExpense(expenseId: string) {
+  const res = await fetch(`${API_BASE}/expenses/${expenseId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete expense');
+  return await res.json();
+}
+
 // Tasks API
 export async function createTask(payload: {
   title: string;
@@ -164,6 +204,16 @@ export async function createTask(payload: {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Failed to create task');
+  return await res.json();
+}
+
+export async function updateTask(taskId: string, payload: { title?: string; content?: string; due_at?: string; is_done?: boolean }) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to update task');
   return await res.json();
 }
 
@@ -189,6 +239,14 @@ export async function toggleTask(taskId: string) {
     method: 'POST',
   });
   if (!res.ok) throw new Error('Failed to toggle task');
+  return await res.json();
+}
+
+export async function deleteTask(taskId: string) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete task');
   return await res.json();
 }
 

@@ -8,12 +8,13 @@ from fastapi import APIRouter, HTTPException, Query, Path
 from google.cloud.firestore import Client
 
 from ..firestore_db import get_db
-from ..schemas import ChatMessageCreate, ChatMessageOut, ChatMessageUpdate
+from ..schemas import ChatMessageCreate, ChatMessageOut, ChatMessageUpdate, ChatMessageEdit
 from ..service.chat_service import (
     create_chat_message,
     get_chat_messages,
     get_conversations,
-    update_message_status
+    update_message_status,
+    get_chat_message_by_id
 )
 from ..service.chat_service import delete_chat_message, update_chat_message
 
@@ -59,10 +60,28 @@ def get_messages(
         raise HTTPException(status_code=500, detail=f"Failed to get chat messages: {str(e)}")
 
 
+@router.get("/messages/{message_id}", summary="Get chat message by ID")
+def get_message(
+    message_id: str = Path(..., description="Message ID")
+) -> dict:
+    """Get a specific chat message by ID."""
+    try:
+        with get_db() as db:
+            message = get_chat_message_by_id(db, message_id)
+            if not message:
+                raise HTTPException(status_code=404, detail="Message not found")
+            return message
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get message {message_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get message: {str(e)}")
+
+
 @router.put("/messages/{message_id}", response_model=ChatMessageOut, summary="Edit a chat message")
 def edit_message(
     message_id: str = Path(..., description="Message ID"),
-    payload: ChatMessageCreate = ...,
+    payload: ChatMessageEdit = ...,
 ) -> ChatMessageOut:
     try:
         with get_db() as db:

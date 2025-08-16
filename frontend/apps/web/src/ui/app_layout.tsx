@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from './cn';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import React from 'react';
 import { ALL_ITEMS, NavItem } from './nav_items';
 import VaultIcon from '../assets/Vault Image.png';
-import { listItems } from '../service/api';
+import FamilyPic from '../assets/Family_Pic.jpg';
+
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
@@ -56,7 +57,7 @@ function TopBar(): JSX.Element {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-900 text-white">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 text-white shadow-lg">
       <div className="w-full px-4 py-3 lg:py-4">
         <div className="flex items-center justify-between gap-4 max-w-none relative">
           {/* Left side - Logo and Title */}
@@ -64,8 +65,8 @@ function TopBar(): JSX.Element {
             className="flex items-center gap-3 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={handleLogoClick}
           >
-            <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-md ring-1 ring-white/20" />
-            <div className="text-2xl font-bold tracking-tight">MyVault</div>
+            <img src={VaultIcon} alt="MyVault" className="h-10 w-10 rounded-lg shadow-lg ring-2 ring-white/30 object-contain" />
+            <div className="text-2xl font-bold tracking-tight text-white drop-shadow-lg">MyVault</div>
           </div>
           
           {/* Center - Search bar (desktop only) */}
@@ -76,14 +77,14 @@ function TopBar(): JSX.Element {
                 placeholder="Search expenses, tasks, chats..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-md border border-white/20 bg-white/10 text-white placeholder-white/70 px-3 py-2 outline-none focus:border-white/40 focus:ring-2 focus:ring-white/20"
+                className="w-full rounded-xl border-0 bg-white/20 text-white placeholder-white/70 px-4 py-2.5 outline-none focus:bg-white/30 focus:ring-2 focus:ring-white/40 backdrop-blur-sm transition-all duration-200"
               />
             </form>
           </div>
           
           {/* Right side - User info */}
           <div className="flex items-center gap-3 text-white/90 flex-shrink-0 relative">
-            <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center font-medium">M</div>
+            <img src={FamilyPic} alt="User" className="h-10 w-10 rounded-full ring-2 ring-white/30 shadow-lg object-cover object-center" />
           </div>
         </div>
       </div>

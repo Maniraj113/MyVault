@@ -1,11 +1,10 @@
-import React, { useEffect, useState, Fragment, useRef } from 'react';
-import { createExpense as apiCreateExpense, getExpenses as apiGetExpenses, updateExpense as apiUpdateExpense } from '../service/api';
+import React, { useEffect, useState,  useRef, useCallback } from 'react';
+import { createExpense as apiCreateExpense, getExpenses as apiGetExpenses, updateExpense as apiUpdateExpense, deleteExpense as apiDeleteExpense } from '../service/api';
 import { 
   Plus, 
   Wallet, 
   TrendingUp, 
-  TrendingDown, 
-  Calendar, 
+  TrendingDown,  
   Filter,
   Car, 
   PiggyBank, 
@@ -21,9 +20,9 @@ import {
   Heart, 
   ChevronDown,
   Edit,
-  Clock,
   X,
-  HelpCircle
+  HelpCircle,
+  Trash2
 } from 'lucide-react';
 
 interface Expense {
@@ -71,6 +70,9 @@ export function ExpensesPage(): JSX.Element {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM format
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   
   const now = new Date();
@@ -128,13 +130,13 @@ export function ExpensesPage(): JSX.Element {
     return `${dateStr}T${time24}`;
   }
 
-  function getTimeParts(time12h: string): { hour: string; minute: string; mer: 'am' | 'pm' } {
+  const getTimeParts = useCallback((time12h: string): { hour: string; minute: string; mer: 'am' | 'pm' } => {
     const m = time12h.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
     if (!m) return { hour: '12', minute: '00', mer: 'am' };
     return { hour: m[1].padStart(2, '0'), minute: m[2], mer: m[3] as 'am' | 'pm' };
-  }
+  }, []);
 
-  function setTimePart(part: 'hour' | 'minute' | 'mer', value: string): void {
+  const setTimePart = useCallback((part: 'hour' | 'minute' | 'mer', value: string): void => {
     const { hour, minute, mer } = getTimeParts(form.occurred_time);
     const next = {
       hour: part === 'hour' ? value.padStart(2, '0') : hour,
@@ -142,9 +144,9 @@ export function ExpensesPage(): JSX.Element {
       mer: (part === 'mer' ? value : mer) as 'am' | 'pm',
     };
     setForm({ ...form, occurred_time: `${next.hour}:${next.minute}${next.mer}` });
-  }
+  }, [form.occurred_time]);
 
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: any = {};
@@ -169,17 +171,17 @@ export function ExpensesPage(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filterCategory, filterType, filterMonth]);
 
   useEffect(() => {
     loadExpenses();
-  }, [filterCategory, filterType, filterMonth]);
+  }, [loadExpenses]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!form.title.trim() || !form.amount || parseFloat(form.amount) <= 0 || !form.category) {
-      alert('Please fill in all required fields including category selection');
+      setError('Please fill in all required fields including category selection');
       return;
     }
 
@@ -194,8 +196,10 @@ export function ExpensesPage(): JSX.Element {
 
       if (editingExpense) {
         await apiUpdateExpense(String(editingExpense.id), payload);
+        setSuccess('Expense updated successfully!');
       } else {
         await apiCreateExpense(payload);
+        setSuccess('Expense created successfully!');
       }
 
       setEditingExpense(null);
@@ -216,13 +220,25 @@ export function ExpensesPage(): JSX.Element {
 
     } catch (error) {
       console.error('Failed to save expense:', error);
-      alert('Failed to save expense');
+      setError('Failed to save expense. Please try again.');
     }
-  };
+  }, [form, editingExpense, loadExpenses]);
 
-  const handleEdit = (expense: Expense) => {
+  const handleEdit = useCallback((expense: Expense) => {
     setEditingExpense(expense);
-  };
+  }, []);
+
+  const handleDelete = useCallback(async (id: number) => {
+    try {
+      await apiDeleteExpense(String(id));
+      setSuccess('Expense deleted successfully!');
+      setDeleteConfirmId(null);
+      loadExpenses();
+    } catch (error) {
+      console.error('Failed to delete expense:', error);
+      setError('Failed to delete expense. Please try again.');
+    }
+  }, [loadExpenses]);
 
   const totalIncome = expenses
     .filter(e => e.is_income)
@@ -248,6 +264,37 @@ export function ExpensesPage(): JSX.Element {
 
   return (
     <div className="h-full flex flex-col p-4 space-y-6">
+      {/* Error and Success Messages */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span className="font-medium">{error}</span>
+            <button 
+              onClick={() => setError(null)} 
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-green-800">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span className="font-medium">{success}</span>
+            <button 
+              onClick={() => setSuccess(null)} 
+              className="ml-auto text-green-600 hover:text-green-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -389,31 +436,67 @@ export function ExpensesPage(): JSX.Element {
                     const category = EXPENSE_CATEGORIES.find(cat => cat.value === expense.category);
                     const IconComponent = category?.icon || MoreHorizontal;
                     return (
-                      <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-3 text-gray-600">
-                          <div>{new Date(expense.occurred_on).toLocaleDateString()}</div>
-                          <div className="text-xs text-gray-500">
+                      <React.Fragment key={expense.id}>
+                        <tr>
+                          <td className="px-4 py-3 text-left">
+                            <div className="flex items-center gap-3">
+                              <div 
+                                className={`h-8 w-8 rounded-md grid place-items-center flex-shrink-0 ${
+                                  expense.is_income ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                                }`}
+                              >
+                                <IconComponent className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{expense.title}</div>
+                                <div className="text-xs text-gray-500">{category?.label || expense.category}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center text-sm text-gray-500">
+                            {new Date(expense.occurred_on).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-center text-sm text-gray-500">
                             {new Date(expense.occurred_on).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-gray-900">{expense.title}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <IconComponent className="w-4 h-4 text-gray-500" />
-                            <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
-                              {category?.label || expense.category}
-                            </span>
-                          </div>
-                        </td>
-                        <td className={`px-4 py-3 text-right font-medium ${expense.is_income ? 'text-green-600' : 'text-red-600'}`}>
-                          {expense.is_income ? '+' : '-'}₹{Number(expense.amount).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button onClick={() => handleEdit(expense)} className="p-1 text-gray-400 hover:text-blue-600">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
+                          </td>
+                          <td className={`px-4 py-3 text-right font-medium ${expense.is_income ? 'text-green-600' : 'text-red-600'}`}>
+                            {expense.is_income ? '+' : '-'}₹{Number(expense.amount).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button onClick={() => handleEdit(expense)} className="p-1 text-gray-400 hover:text-blue-600">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => setDeleteConfirmId(expense.id)} className="p-1 text-red-400 hover:text-red-600">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                        
+                        {/* Delete Confirmation */}
+                        {deleteConfirmId === expense.id && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-3 bg-red-50 border-t border-red-200">
+                              <div className="text-sm text-red-800 mb-2">
+                                Are you sure you want to delete this expense?
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleDelete(expense.id)}
+                                  className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -425,13 +508,16 @@ export function ExpensesPage(): JSX.Element {
                   const category = EXPENSE_CATEGORIES.find(cat => cat.value === expense.category);
                   const IconComponent = category?.icon || MoreHorizontal;
                   return (
-                    <li key={expense.id} className="p-3 flex items-center gap-3" onClick={() => handleEdit(expense)}>
-                      <div className={`h-10 w-10 rounded-md grid place-items-center flex-shrink-0 ${
-                        expense.is_income ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-                      }`}>
+                    <li key={expense.id} className="p-3 flex items-center gap-3">
+                      <div 
+                        className={`h-10 w-10 rounded-md grid place-items-center flex-shrink-0 ${
+                          expense.is_income ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                        }`}
+                        onClick={() => handleEdit(expense)}
+                      >
                         <IconComponent className="w-5 h-5" />
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0" onClick={() => handleEdit(expense)}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="font-medium text-gray-900 truncate">{expense.title}</div>
                           <div className={`ml-3 font-semibold ${expense.is_income ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -444,6 +530,43 @@ export function ExpensesPage(): JSX.Element {
                           <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">{category?.label || expense.category}</span>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => handleEdit(expense)} 
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setDeleteConfirmId(expense.id)} 
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      {/* Mobile Delete Confirmation */}
+                      {deleteConfirmId === expense.id && (
+                        <li className="p-3 bg-red-50 border-t border-red-200">
+                          <div className="text-sm text-red-800 mb-2">
+                            Are you sure you want to delete this expense?
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleDelete(expense.id)}
+                              className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </li>
+                      )}
                     </li>
                   );
                 })}

@@ -54,6 +54,11 @@ class ItemOut(BaseModel):
         from_attributes = True
 
 
+class ItemUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+
 class ExpenseCreate(BaseModel):
     title: str
     content: Optional[str] = None
@@ -113,6 +118,11 @@ class TaskUpdate(BaseModel):
 
 
 class ChatMessageCreate(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    conversation_id: str = Field(min_length=1, max_length=100)
+
+
+class ChatMessageEdit(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     conversation_id: str = Field(min_length=1, max_length=100)
 
